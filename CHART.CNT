@@ -1,0 +1,31 @@
+:Base chart.hlp
+:Title Intracept Chart
+1 Chart
+2 What is Chart=IDH_What_is_Chart
+2 Signal connections=IDH_signal_connections
+2 Making a recording=IDH_Making_a_Recording
+2 Displaying signals=IDH_displaying_recorded_signals
+2 Making measurements=IDH_Making_measurements
+2 Printing a recording=IDH_Print
+2 Computed functions
+3 Heart rate=IDH_heart_rate
+3 RMS (Root mean square EMG)=IDH_RMS
+1 Menu commands
+2 File
+3 New data file=IDH_New_data_file
+3 Open data file=IDH_Open_data_file
+3 Print=IDH_print
+3 Print setup=IDH_print_setup
+3 Exit=IDH_exit
+2 Edit
+3 Copy data=idh_copy_data
+2 View
+3 Zoom in=IDH_zoom_in
+3 Zoom out (all)=IDH_zoom_out_all
+2 Calibrate
+3 Calibrate=IDH_Calibrate
+2 Setup
+3 Recording=IDH_recording
+3 CED 1902 Amplifier=IDH_CED_1902_amplifier
+3 Computed channels=IDH_computed_channels
+3 Stimulator=IDH_Stimulator

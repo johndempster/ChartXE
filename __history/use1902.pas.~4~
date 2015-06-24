@@ -1,0 +1,436 @@
+unit use1902;
+{ ============================================================
+  CED 1902 amplifier control module
+  (c) J. Dempster, University of Strathclyde, 1996-98
+  23/8/98
+  8/2/01 Updated to function as proper data module
+  22/9/02 Communications with CED 1902 via COM port now works under Windows NT/2000
+  1/10/3  CED 1902 queried after each command sent
+          (fixes failure to set AC coupling with 29xx s/n 1902s)
+  7/10/3  GainValue now set to CED 1902 gain
+  30/9/4  DTR line now set when serial link opened
+          to ensure 1902 can send data
+  15/10/4 RTS line now set also
+  05/10/5 Intermittent loss of communications with 1902 fixed
+  10/08/06
+  ============================================================}
+
+interface
+
+uses
+   windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,  math, mmsystem ;
+
+type
+
+
+  TCED1902 = class(TDataModule)
+    procedure DataModuleCreate(Sender: TObject);
+  private
+    { Private declarations }
+    function TransmitLine( const Line : string ) : Boolean ;
+    function  ReceiveLine : string ;
+
+  public
+    { Public declarations }
+    TraceFile : TextFile ;
+    ComPort : LongInt ;
+    ComHandle : Integer ;
+    InUse : Boolean ;
+    Input : LongInt ;
+    InputName : string[16] ;
+    Gain : LongInt ;
+    GainValue : Single ;
+    HPFilter : LongInt ;
+    HPFilterValue : Single ;
+    LPFilter : LongInt ;
+    LPFilterValue : Single ;
+    NotchFilter : LongInt ;
+    ACCoupled : LongInt ;
+    DCOffset : LongInt ;
+    DCOffsetVMax : single ;
+    OverLapStructure : POverlapped ;
+    FirstCall : Boolean ;
+    DCB1 : TDCB ;
+
+    function Check1902Error : string ;
+    function UpdateAmplifier : Boolean ;
+    function DCOffsetRange : single ;
+    procedure GetList( Command : string ; Var List : TStringList ) ;
+    function Query( Request : string ) : string ;
+    function OpenLink : Boolean ;
+    procedure CloseLink ;
+
+  end;
+
+
+var
+  CED1902: TCED1902;
+
+implementation
+
+{$R *.DFM}
+
+uses shared ;
+
+function TCED1902.TransmitLine(
+          const Line : string   { Text to be sent to Com port }
+          ) : Boolean ;
+{ --------------------------------------
+  Write a line of ASCII text to Com port
+  --------------------------------------}
+var
+   i,nC,nWritten : Cardinal ;
+   xBuf : array[0..258] of char ;
+   Overlapped : POverlapped ;
+   ComStat : TComStat ;
+   CommError : DWORD ;
+begin
+     Result := False ;
+     if ComHandle < 0 then Exit ;
+
+     // Clear any errors
+     ClearCommError( ComHandle, CommError, @ComStat ) ;
+
+     { Copy command line to be sent to xMit buffer and and a CR character }
+     nC := Length(Line) ;
+     for i := 1 to nC do xBuf[i-1] := Line[i] ;
+     xBuf[nC] := chr(13) ;
+     Inc(nC) ;
+
+     Overlapped := Nil ;
+     WriteFile( ComHandle, xBuf, nC, nWritten, Overlapped ) ;
+
+     if nWRitten <> nC then begin
+        //ShowMessage( ' Error writing to COM port ' ) ;
+        Result := False ;
+        end
+     else Result := True ;
+
+     outputdebugString(PChar('T: ' + Line)) ;
+
+     end ;
+
+
+function TCED1902.Check1902Error : string ;         { Error flag returned  }
+{ --------------------------------------
+  Retrieve error information from 1902
+  --------------------------------------}
+var
+   i,nC : Integer ;
+   xBuf : array[0..258] of char ;
+   Line : string ;
+   CommStat : TComStat ;
+   CommError : DWORD ;
+begin
+
+     if ComHandle < 0 then Exit ;
+
+     // Clear any errors
+     ClearCommError( ComHandle, CommError, @CommStat ) ;
+
+     Line := '?ER;' ;
+     nC := Length(Line) ;
+     for i := 1 to nC do xBuf[i-1] := Line[i] ;
+     xBuf[nC] := chr(13) ;
+     Inc(nC) ;
+     if FileWrite( ComHandle, xBuf, nC ) = nC then begin
+        Result := ReceiveLine ;
+        end
+     else begin
+        Result := ' Error writing to COM port ' ;
+        end ;
+     end ;
+
+
+function TCED1902.ReceiveLine : string ;          { Return line of bytes received }
+{ -------------------------------------------------------
+  Read bytes from Com port until a line has been received
+  -------------------------------------------------------}
+const
+     TimeOut = 500 ;
+var
+   Line : string ;
+   rBuf : array[0..1] of char ;
+   NumBytesRead : Cardinal ;
+   ComState : TComStat ;
+   T,TimeOutTickCount : Cardinal ;
+   ComError : Cardinal ;
+   CommStat : TComStat ;
+   OK : Boolean ;
+   Overlapped : POverlapped ;
+   ComMask : Cardinal ;
+begin
+
+     if ComHandle < 0 then begin
+        Result := '' ;
+        Exit ;
+        end ;
+
+     { Set time that ReceiveLine will give up at if a full line has not
+       been received }
+     TimeOutTickCount := TimeGetTime + TimeOut ;
+
+     Line := '' ;
+     repeat
+        rBuf[0] := ' ' ;
+        Overlapped := Nil ;
+        { Find out if there are any characters in receive buffer }
+        OK := ClearCommError( ComHandle, ComError, @ComState )  ;
+        if not OK then Break ;
+        NumBytesRead := 0 ;
+        if ComState.cbInQue > 0 then begin
+           ReadFile( ComHandle,
+                     rBuf,
+                     1,
+                     NumBytesRead,
+                     Overlapped{OverlapStructure} ) ;
+           end ;
+
+        if NumBytesRead > 0 then begin
+           if (rBuf[0] <> chr(13)) and (rBuf[0]<>chr(10)) then
+              Line := Line + rBuf[0] ;
+           end ;
+        T := TimeGetTime ;
+        until (rBuf[0] = chr(13)) or (T >= TimeOutTickCount) ;
+
+     outputdebugString(PChar('R: ' + Line)) ;
+
+     Result := Line ;
+     end ;
+
+
+function TCED1902.UpdateAmplifier : Boolean ;
+{ ---------------------------------------------------
+  Transmit gain/filter settings to CED 1902 amplifier
+  ---------------------------------------------------}
+var
+   Status : String ;
+   List : TStringList ;
+begin
+
+     // Exit if no CED 1902
+     if not CED1902.InUse then Exit ;
+
+     // Open com link to CED 1902
+     if not OpenLink then Exit ;
+
+     List := TStringList.Create ;
+
+     try
+
+     // Initialise CED 1902
+     TransmitLine('IN;CH0;') ;
+
+     { Problem Here ?? First command to 1902 getting ignored }
+     TransmitLine(format('IP%d;',[Input]));
+     Status := Query('?IP;') ;
+     if Status = '' then begin
+        ShowMessage('No reply from CED 1902! Switch CED 1902 off and back on. Then try again.') ;
+        Result := False ;
+        Exit ;
+        end ;
+
+     TransmitLine(format('GN%d;',[Gain]));
+     Status := Query('?GN;') ;
+     TransmitLine(format('LP%d;',[LPFilter]));
+     Status := Query('?LP;') ;
+     TransmitLine(format('HP%d;',[HPFilter]));
+     Status := Query('?HP;') ;
+     TransmitLine(format('AC%d;',[ACCoupled]));
+     Status := Query('?AC;') ;
+     TransmitLine(format('NF%d;',[NotchFilter]));
+     Status := Query('?NF;') ;
+
+     { Set DC Offset }
+     TransmitLine('OR1;' );
+     Status := Query('?OR;') ;
+     TransmitLine(format('OF%d;',[DCOffset]));
+     Status := Query('?OF;') ;
+
+     { Gain list }
+     CED1902.GetList( '?GS;', List ) ;
+     if List.Count > 1 then begin
+        if Gain > List.Count then
+        Gain := Min(Max(Gain,1),List.Count) ;
+        CED1902.GainValue := ExtractFloat( List[Gain-1], 1.0 ) ;
+        end
+     else begin
+        ShowMessage('CED 1902 Error: No gain list returned!') ;
+        Gain := 1 ;
+        end ;
+
+     Result := True ;
+
+     finally
+
+        List.Free ;
+
+        // Close link to CED 1902
+        CloseLink ;
+        end ;
+
+     end ;
+
+
+function TCED1902.OpenLink : Boolean ;
+// ---------------------------------------------------
+// Establish communications with CED 1902 via COM port
+// ---------------------------------------------------
+var
+              { Device control block for COM port }
+   ComStat : TComStat ;
+   CommTimeouts : TCommTimeouts ;
+   TraceFileName : String ;
+   ComPortName : String ;
+   ComMask : DWord ;
+   ComErrors : DWord ;
+   Comstate : TComstat ;
+begin
+
+     Result := False ;
+     ComPort := Min(Max(ComPort,1),4) ;
+     ComPortName := format('COM%d',[ComPort]) ;
+
+     { Open com port  }
+     ComHandle :=  CreateFile( PCHar(ComPortName),
+                               GENERIC_READ or GENERIC_WRITE,
+                               0,
+                               Nil,
+                               OPEN_EXISTING,
+                               FILE_ATTRIBUTE_NORMAL,
+                               0) ;
+
+     if ComHandle < 0 then begin
+        ShowMessage('Unable to open COM port') ;
+        Exit ;
+        end ;
+
+     // Create DCB for serial port with 1902 settings
+     BuildCommDCB( PChar('baud=9600 parity=N data=8 stop=1'), DCB1) ;
+     DCB1.DCBlength := SizeOf(DCB) ;
+  //   DCB.Flags := DTR_CONTROL_ENABLE ;//
+     DCB1.fDtrControl := DTR_CONTROL_HANDSHAKE ;
+     DCB1.fRtsControl := RTS_CONTROL_HANDSHAKE ;
+     DCB1.XonChar := chr(49) ;
+     DCB1.XoffChar := chr(51) ;
+
+     // Clear comms error
+     ClearCommError( ComHandle, ComErrors, @ComState ) ;
+
+     // Set communications port state
+     SetCommState( ComHandle, DCB1 ) ;
+
+     // Initialise Com port and set size of transmit/receive buffers
+     SetupComm( ComHandle, 256, 256 ) ;
+
+     { Set Com port timeouts }
+     GetCommTimeouts( ComHandle, CommTimeouts ) ;
+     CommTimeouts.ReadIntervalTimeout := $FFFFFFFF ;
+     CommTimeouts.ReadTotalTimeoutMultiplier := 0 ;
+     CommTimeouts.ReadTotalTimeoutConstant := 0 ;
+     CommTimeouts.WriteTotalTimeoutMultiplier := 0 ;
+     CommTimeouts.WriteTotalTimeoutConstant := 5000 ;
+     SetCommTimeouts( ComHandle, CommTimeouts ) ;
+
+     // Clear I/O buffer
+     PurgeComm( ComHandle, PURGE_TXABORT ) ;
+     PurgeComm( ComHandle, PURGE_RXABORT ) ;
+     PurgeComm( ComHandle, PURGE_TXCLEAR ) ;
+     PurgeComm( ComHandle, PURGE_RXCLEAR ) ;
+     PurgeComm( ComHandle, CLRBREAK ) ;
+
+     // Set DTR lines to ensure 1902 can send
+     EscapeCommFunction( ComHandle, SETDTR ) ;
+     EscapeCommFunction( ComHandle, SETRTS ) ;
+
+     outputdebugString(PChar(format('CED 1902 opened hnd=%d',[ComHandle]))) ;
+     Result := True ;
+
+     end ;
+
+
+procedure TCED1902.CloseLink ;
+// -----------------------
+// Close CED 1902 com link
+// -----------------------
+begin
+     if ComHandle >= 0 then begin
+        CloseHandle( ComHandle ) ;
+        ComHandle := -1 ;
+        end ;
+
+     outputdebugString(PChar('CED 1902 closed')) ;
+
+     end ;
+
+
+function TCED1902.DCOffsetRange : single ;
+ begin
+      if Input = 1 then Result := 0.0005
+      else if Input = 2 then Result := 0.5
+      else if Input = 3 then Result := 0.0005
+      else if Input = 4 then Result := 0.0005
+      else if Input = 5 then Result := 0.0001
+      else Result := 0.0001 ;
+      end ;
+
+
+procedure TCED1902.GetList(
+           Command : string ;       { Command requesting list }
+           Var List : TStringList   { List of strings returned from 1902 }
+           ) ;
+var
+   NumItems,i : Integer ;
+   InBuf : string ;
+begin
+
+     List.Clear ;
+     if ComHandle < 0 then Exit ;
+
+     { Request list of gains }
+     TransmitLine( Command ) ;
+     InBuf := ReceiveLine ;
+     if InBuf = '' then begin
+        TransmitLine( Command ) ;
+        InBuf := ReceiveLine ;
+        end ;
+     { Read  list back from 1902 }
+
+     NumItems := ExtractInt( InBuf ) ;
+     for i := 0 to NumItems-1 do begin
+         List.Add( ReceiveLine ) ;
+         end ;
+
+     end ;
+
+
+function TCED1902.Query(
+         Request : string         { Request string }
+         ) : string ;             { Returns reply }
+// ---------------------------------------
+// Request CED 1902 for status information
+// ---------------------------------------
+var
+   InBuf : string ;
+begin
+     InBuf := '' ;
+
+     { Request list of gains }
+     TransmitLine( Request ) ;
+     InBuf := ReceiveLine ;
+     if InBuf = '' then begin
+        TransmitLine( Request ) ;
+        InBuf := ReceiveLine ;
+        end ;
+     Result := InBuf ;
+
+     end ;
+
+
+procedure TCED1902.DataModuleCreate(Sender: TObject);
+begin
+     ComHandle := -1 ;
+     FirstCall := True ;
+     end;
+
+end.
