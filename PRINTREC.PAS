@@ -9,6 +9,7 @@ unit PrintRec;
   4/11/03 ... Printer name now discovered using Printer.GetPrinter
   4/09/04 ... Channels can be selected for display individually
   24/7/13 ... GetCurrentPrinterName now compiles under V7 and XE2/3
+  02.07.18... calibration table resized to display all text
   =================================================================}
 interface
 
@@ -92,7 +93,7 @@ var
 implementation
 
 {$R *.DFM}
-uses Main, maths ;
+uses Main ;
 
 procedure TPrintRecFrm.FormShow(Sender: TObject);
 { --------------------------------
@@ -128,8 +129,8 @@ begin
      cbFontName.items := printer.fonts ;
 
      { Set Column widths }
-     CalibrationBarTable.colwidths[0] := Canvas.TextWidth('XXXXX') ;
-     CalibrationBarTable.colwidths[1] := Canvas.TextWidth('XXXXXXXXX') ;
+     CalibrationBarTable.colwidths[0] := Canvas.TextWidth('XXXXXXXXXX') ;
+     CalibrationBarTable.colwidths[1] := Canvas.TextWidth('XXXXXXXXXXXXXXX') ;
 
      CalibrationBarTable.options := [goEditing,goHorzLine,goVertLine] ;
      CalibrationBarTable.RowCount := MainFrm.SESLabIO.ADCNumChannels + 1 ;

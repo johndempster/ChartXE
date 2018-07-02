@@ -1,0 +1,369 @@
+unit PrintRec;
+{ =================================================================
+  Chart - Printer page/font setup form for printing signal records
+  2/5/97 ... Calibration bar values only shown for enabled channels
+  26/6/98 ... Text boxes updates now grouped together in UpdateSettings
+  30/8/99 ... Display object (Scope or Chart) now updated by PrintRec
+  18/5/03 ... Copied from WinWCP
+  7/10/03 ... Zero channel calibration now substituted with default value
+  4/11/03 ... Printer name now discovered using Printer.GetPrinter
+  4/09/04 ... Channels can be selected for display individually
+  24/7/13 ... GetCurrentPrinterName now compiles under V7 and XE2/3
+  =================================================================}
+interface
+
+uses WinTypes, WinProcs, Classes, Graphics, Forms, Controls, Buttons,
+  StdCtrls, ExtCtrls,Printers, Shared, Grids, SysUtils, Spin,
+  ValEdit,  ScopeDisplay, ChartDisplay, ValidatedEdit ;
+
+type
+  TDestination = (dePrinter,deClipboard) ;
+  TPrintRecFrm = class(TForm)
+    GroupBox2: TGroupBox;
+    CalibrationBarTable: TStringGrid;
+    GroupBox5: TGroupBox;
+    ckShowZeroLevels: TCheckBox;
+    ckShowLabels: TCheckBox;
+    bPrint: TButton;
+    bCancel: TButton;
+    ckUseColor: TCheckBox;
+    FontGrp: TGroupBox;
+    Label7: TLabel;
+    cbFontName: TComboBox;
+    Page: TNotebook;
+    GroupBox1: TGroupBox;
+    Label1: TLabel;
+    Label2: TLabel;
+    Label3: TLabel;
+    Label4: TLabel;
+    GroupBox4: TGroupBox;
+    Label6: TLabel;
+    Label8: TLabel;
+    edWidth: TValidatedEdit;
+    edHeight: TValidatedEdit;
+    edLeftMargin: TValidatedEdit;
+    edTopMargin: TValidatedEdit;
+    edRightMargin: TValidatedEdit;
+    edBottomMargin: TValidatedEdit;
+    edFontSize: TValidatedEdit;
+    Label5: TLabel;
+    edLineThickness: TValidatedEdit;
+    bDefaultSettings: TButton;
+    GroupBox3: TGroupBox;
+    rbDisplayWindow: TRadioButton;
+    rbWholeFile: TRadioButton;
+    GroupBox6: TGroupBox;
+    bPrinterSetup: TButton;
+    edPrinterName: TEdit;
+    GroupBox7: TGroupBox;
+    ckShowChan0: TCheckBox;
+    ckShowChan1: TCheckBox;
+    ckShowChan2: TCheckBox;
+    ckShowChan3: TCheckBox;
+    ckShowChan4: TCheckBox;
+    ckShowChan5: TCheckBox;
+    ckShowChan6: TCheckBox;
+    ckShowChan7: TCheckBox;
+    procedure bPrintClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure CalibrationBarTableKeyPress(Sender: TObject; var Key: Char);
+    procedure bDefaultSettingsClick(Sender: TObject);
+    procedure bPrinterSetupClick(Sender: TObject);
+  private
+    { Private declarations }
+
+    procedure SetShowChannel(
+              ch : Integer ;
+              ckShowChan : TCheckbox
+              ) ;
+    function GetCurrentPrinterName : string ;
+  public
+    { Public declarations }
+
+    Destination : TDestination ;
+    DisplayObj : TObject ;
+  end;
+
+
+
+var
+  PrintRecFrm: TPrintRecFrm;
+
+implementation
+
+{$R *.DFM}
+uses Main ;
+
+procedure TPrintRecFrm.FormShow(Sender: TObject);
+{ --------------------------------
+  Initialise Print Record(s) form
+  -------------------------------}
+var
+   n,ch,Row : Integer ;
+begin
+     { Select appropriate settings page }
+     if Destination = dePrinter then begin
+        Caption := ' Print ' ;
+        edPrinterName.Text := GetCurrentPrinterName ;
+
+        bPrinterSetup.Enabled := True ;
+        Page.PageIndex := 0 ;
+        edFontSize.Units := 'pts' ;
+        edLineThickness.Units := 'pts' ;
+        rbWholeFile.Enabled := True ;
+        end
+     else begin
+        Caption := ' Copy Image ' ;
+        edPrinterName.Text := 'Windows Clipboard' ;
+        bPrinterSetup.Enabled := False ;
+        Page.PageIndex := 1 ;
+        edFontSize.Units := 'pixels' ;
+        edLineThickness.Units := 'pixels' ;
+        rbWholeFile.Enabled := False ;
+        end ;
+     rbDisplayWindow.Checked := True ;
+
+
+     { Fill Fonts list with typefaces available to printer }
+     cbFontName.items := printer.fonts ;
+
+     { Set Column widths }
+     CalibrationBarTable.colwidths[0] := Canvas.TextWidth('XXXXX') ;
+     CalibrationBarTable.colwidths[1] := Canvas.TextWidth('XXXXXXXXX') ;
+
+     CalibrationBarTable.options := [goEditing,goHorzLine,goVertLine] ;
+     CalibrationBarTable.RowCount := MainFrm.SESLabIO.ADCNumChannels + 1 ;
+     CalibrationBarTable.cells[0,0] := 'Time ';
+
+     { Adjust number of rows to number of enabled channels }
+      CalibrationBarTable.RowCount := MainFrm.SESLabIO.ADCNumChannels + 1 ;
+
+      { Update text box settings }
+      edLeftMargin.Value := MainFrm.Plot.LeftMargin ;
+      edRightMargin.Value := MainFrm.Plot.RightMargin ;
+      edTopMargin.Value := MainFrm.Plot.TopMargin ;
+      edBottomMargin.Value := MainFrm.Plot.BottomMargin ;
+      edWidth.Value := MainFrm.Plot.MetafileWidth ;
+      edHeight.Value := MainFrm.Plot.MetafileHeight ;
+      edFontSize.Value := MainFrm.Plot.FontSize ;
+      edLineThickness.Value := MainFrm.Plot.LineThickness ;
+      cbFontName.itemindex := cbFontName.items.indexof(MainFrm.Plot.FontName) ;
+      if cbFontName.itemindex < 0 then  cbFontName.itemindex := 0 ;
+
+      if MainFrm.TimeBarValue <= 0.0 then begin
+        MainFrm.TimeBarValue := (TScopeDisplay(DisplayObj).xMax -
+                                 TScopeDisplay(DisplayObj).xMin)*
+                                 TScopeDisplay(DisplayObj).TScale*0.1 ;
+        end ;
+
+      CalibrationBarTable.cells[1,0] := Format( '%.4g %s',
+                                       [MainFrm.TimeBarValue,
+                                        MainFrm.TUnits])  ;
+
+      { Channel calibration bars }
+      Row := 1 ;
+      for ch := 0 to MainFrm.SESLabIO.ADCNumChannels-1 do begin
+        if MainFrm.ADCCalibrationBar[ch] <= 0.0 then
+           MainFrm.ADCCalibrationBar[ch] := (MainFrm.SESLabIO.ADCChannelYMax[ch]
+                                             - MainFrm.SESLabIO.ADCChannelYMax[ch])
+                                             *MainFrm.SESLabIO.ADCChannelUnitsPerBit[ch]*0.1 ;
+         CalibrationBarTable.cells[0,Row] := MainFrm.SESLabIO.ADCChannelName[ch];
+         CalibrationBarTable.cells[1,Row] := Format( '%.4g %s',
+                                              [MainFrm.ADCCalibrationBar[ch],
+                                               MainFrm.SESLabIO.ADCChannelUnits[ch]]);
+         Inc(Row) ;
+         end ;
+
+      SetShowChannel( 0, ckShowChan0 ) ;
+      SetShowChannel( 1, ckShowChan1 ) ;
+      SetShowChannel( 2, ckShowChan2 ) ;
+      SetShowChannel( 3, ckShowChan3 ) ;
+      SetShowChannel( 4, ckShowChan4 ) ;
+      SetShowChannel( 5, ckShowChan5 ) ;
+      SetShowChannel( 6, ckShowChan6 ) ;
+      SetShowChannel( 7, ckShowChan7 ) ;
+
+      { Ensure calibration bars have focus when dialog box opens }
+      CalibrationBarTable.SetFocus ;
+
+     end;
+
+function TPrintRecFrm.GetCurrentPrinterName : string ;
+const
+    MaxSize = 256 ;
+var
+   n,ch,Row : Integer ;
+   DeviceName,DeviceDriver,Port : PChar ;
+   DeviceMode : THandle ;
+begin
+        GetMem( DeviceName, MaxSize*SizeOf(Char) ) ;
+        GetMem( DeviceDriver, MaxSize*SizeOf(Char) ) ;
+        GetMem( Port, MaxSize*SizeOf(Char) ) ;
+        {$IF CompilerVersion > 7.0}
+        Printer.GetPrinter( DeviceName, DeviceDriver,Port,DeviceMode );
+        {$ELSE}
+        Printer.GetPrinter( DeviceName, DeviceDriver,Port, DeviceMode );
+        {$ENDIF}
+
+        Result := String(DeviceName) ;
+        FreeMem(DeviceName) ;
+        FreeMem(DeviceDriver) ;
+        FreeMem(Port) ;
+        end ;
+
+procedure TPrintRecFrm.SetShowChannel(
+          ch : Integer ;
+          ckShowChan : TCheckbox
+          ) ;
+// ------------------------------------
+// Initialise Channel display check box
+// ------------------------------------
+begin
+      if ch < MainFrm.SESLabIO.ADCNumChannels then begin
+         ckShowChan.Visible := True ;
+         ckShowChan.Checked := True ;
+         ckShowChan.Caption := TScopeDisplay(DisplayObj).ChanName[ch] ;
+         end
+      else ckShowChan.Visible := False ;
+      end ;
+
+
+procedure TPrintRecFrm.bPrintClick(Sender: TObject);
+{ -----------------------
+  Update global settings
+  ----------------------}
+var
+   row,ch : Integer ;
+   NumVisible : Integer ;
+begin
+
+      { Update settings from text boxes }
+      MainFrm.Plot.LeftMargin := edLeftMargin.Value ;
+      MainFrm.Plot.RightMargin := edRightMargin.Value ;
+      MainFrm.Plot.TopMargin := edTopMargin.Value ;
+      MainFrm.Plot.BottomMargin := edBottomMargin.Value ;
+      MainFrm.Plot.MetafileWidth := Round(edWidth.Value) ;
+      MainFrm.Plot.MetafileHeight := Round(edHeight.Value) ;
+      MainFrm.Plot.FontSize := Round(edFontSize.Value) ;
+      MainFrm.Plot.LineThickness := Round(edLineThickness.Value) ;
+      MainFrm.Plot.FontName :=  cbFontName.text ;
+
+      MainFrm.Plot.WholeFile := rbWholeFile.Checked ;
+
+      { Time calibration }
+      MainFrm.TimeBarValue := ExtractFloat(CalibrationBarTable.cells[1,0], 1. ) ;
+
+      { Channel calibration bars }
+      Row := 1 ;
+      for ch := 0 to MainFrm.SESLabIO.ADCNumChannels-1 do begin
+         MainFrm.ADCCalibrationBar[ch] := ExtractFloat(
+                                  CalibrationBarTable.Cells[1,Row],10. ) ;
+         Inc(Row) ;
+         end ;
+
+      { Copy data into display object }
+      TScopeDisplay(DisplayObj).PrinterLeftMargin := Round(MainFrm.Plot.LeftMargin) ;
+      TScopeDisplay(DisplayObj).PrinterRightMargin := Round(MainFrm.Plot.RightMargin) ;
+      TScopeDisplay(DisplayObj).PrinterTopMargin := Round(MainFrm.Plot.TopMargin) ;
+      TScopeDisplay(DisplayObj).PrinterBottomMargin := Round(MainFrm.Plot.BottomMargin) ;
+      TScopeDisplay(DisplayObj).PrinterFontName := MainFrm.Plot.FontName ;
+      TScopeDisplay(DisplayObj).PrinterFontSize := MainFrm.Plot.FontSize ;
+      TScopeDisplay(DisplayObj).PrinterPenWidth := MainFrm.Plot.LineThickness ;
+      TScopeDisplay(DisplayObj).MetafileWidth := MainFrm.Plot.MetaFileWidth ;
+      TScopeDisplay(DisplayObj).MetafileHeight := MainFrm.Plot.MetaFileHeight ;
+
+      // Note these parameter settings are not preserved between calls to dialog box
+      TScopeDisplay(DisplayObj).PrinterShowZeroLevels := ckShowZeroLevels.Checked ;
+      TScopeDisplay(DisplayObj).PrinterShowLabels := ckShowLabels.Checked ;
+      TScopeDisplay(DisplayObj).PrinterDisableColor := not ckUseColor.Checked ; ;
+
+      for ch := 0 to TScopeDisplay(DisplayObj).NumChannels-1 do
+          TScopeDisplay(DisplayObj).ChanCalBar[ch] := MainFrm.ADCCalibrationBar[ch] ;
+      TScopeDisplay(DisplayObj).TCalBar := MainFrm.TimeBarValue /
+                                           TScopeDisplay(DisplayObj).TScale ;
+
+     TScopeDisplay(DisplayObj).ChanVisible[0] := ckShowChan0.Checked ;
+     TScopeDisplay(DisplayObj).ChanVisible[1] := ckShowChan1.Checked ;
+     TScopeDisplay(DisplayObj).ChanVisible[2] := ckShowChan2.Checked ;
+     TScopeDisplay(DisplayObj).ChanVisible[3] := ckShowChan3.Checked ;
+     TScopeDisplay(DisplayObj).ChanVisible[4] := ckShowChan4.Checked ;
+     TScopeDisplay(DisplayObj).ChanVisible[5] := ckShowChan5.Checked ;
+     TScopeDisplay(DisplayObj).ChanVisible[6] := ckShowChan6.Checked ;
+     TScopeDisplay(DisplayObj).ChanVisible[7] := ckShowChan7.Checked ;
+
+     // Ensure that at least one channel is visible
+     NumVisible := 0 ;
+     for ch := 0 to TScopeDisplay(DisplayObj).NumChannels-1 do
+         if TScopeDisplay(DisplayObj).ChanVisible[ch] then Inc(NumVisible) ;
+     if NumVisible = 0 then TScopeDisplay(DisplayObj).ChanVisible[0] := True ;
+
+     end ;
+
+
+procedure TPrintRecFrm.CalibrationBarTableKeyPress(
+          Sender: TObject;
+          var Key: Char);
+var
+   Value : single ;
+   ch,Row : Integer ;
+begin
+     if key = chr(13) then begin
+         { Time calibration bar }
+         Value := ExtractFloat( CalibrationBarTable.cells[1,0], 1. ) ;
+         CalibrationBarTable.cells[1,0] := Format( '%.4g %s',
+                                       [Value,MainFrm.TUnits])  ;
+
+         { Channel calibration bars }
+         Row := 1 ;
+         for ch := 0 to MainFrm.SESLabIO.ADCNumChannels-1 do begin
+             Value := ExtractFloat(CalibrationBarTable.Cells[1,Row],10. ) ;
+             CalibrationBarTable.cells[0,Row] := MainFrm.SESLabIO.ADCChannelName[ch] ;
+             CalibrationBarTable.cells[1,Row] := Format( '%.4g %s',
+                                                 [Value,MainFrm.SESLabIO.ADCChannelUnits[ch]]) ;
+             Inc(Row) ;
+             end ;
+         end ;
+
+     end;
+
+
+procedure TPrintRecFrm.bDefaultSettingsClick(Sender: TObject);
+// ---------------------------------------------------------
+// Set calibration values to default settings (10% of range)
+// ---------------------------------------------------------
+var
+     ch,Row : Integer ;
+begin
+
+      MainFrm.TimeBarValue := (TScopeDisplay(DisplayObj).xMax -
+                                TScopeDisplay(DisplayObj).xMin)*
+                                TScopeDisplay(DisplayObj).TScale*0.1 ;
+
+      CalibrationBarTable.cells[1,0] := Format( '%.4g %s',
+                                       [MainFrm.TimeBarValue,
+                                        MainFrm.TUnits])  ;
+
+      Row := 1 ;
+      for ch := 0 to MainFrm.SESLabIO.ADCNumChannels-1 do begin
+           MainFrm.ADCCalibrationBar[ch] := (MainFrm.SESLabIO.ADCChannelYMax[ch]
+                                             - MainFrm.SESLabIO.ADCChannelYMax[ch])
+                                             *MainFrm.SESLabIO.ADCChannelUnitsPerBit[ch]*0.1 ;
+         CalibrationBarTable.cells[0,Row] := MainFrm.SESLabIO.ADCChannelName[ch];
+         CalibrationBarTable.cells[1,Row] := Format( '%.4g %s',
+                                              [MainFrm.ADCCalibrationBar[ch],
+                                               MainFrm.SESLabIO.ADCChannelUnits[ch]]);
+
+         Inc(Row) ;
+         end ;
+end;
+
+procedure TPrintRecFrm.bPrinterSetupClick(Sender: TObject);
+// --------------------------------
+// Display printer setup dialog box
+// --------------------------------
+begin
+     MainFrm.PrinterSetupDialog.Execute ;
+     edPrinterName.Text := GetCurrentPrinterName ;
+     end;
+
+end.

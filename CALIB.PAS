@@ -27,6 +27,8 @@ type
     cbChannels: TComboBox;
     edCalibrationValue: TValidatedEdit;
     edVoltageLevel: TValidatedEdit;
+    edUnits: TEdit;
+    Label4: TLabel;
     procedure Timer1Timer(Sender: TObject);
     procedure bNextClick(Sender: TObject);
     procedure bBackClick(Sender: TObject);
@@ -36,6 +38,8 @@ type
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure cbChannelsChange(Sender: TObject);
     procedure edCalibrationValueKeyPress(Sender: TObject; var Key: Char);
+    procedure edUnitsKeyPress(Sender: TObject; var Key: Char);
+    procedure edUnitsChange(Sender: TObject);
   private
     { Private declarations }
     procedure SetCalibrationValue ;
@@ -76,10 +80,13 @@ begin
      { Fill channel selection list }
      cbChannels.Clear ;
      for ch := 0 to MainFrm.SESLabIO.ADCNumChannels-1 do
-          cbChannels.items.add( ' ' + MainFrm.ADCChannelName[ch] ) ;
+          cbChannels.items.add( ' ' + MainFrm.SESLabIO.ADCChannelName[ch] ) ;
     { Start with channel 0 selected }
 //    ChCal := 0 ;
     cbChannels.ItemIndex := 0 ;
+
+
+
     SetCalibrationValue ;
 
     Timer1.Enabled := True ;
@@ -100,10 +107,11 @@ procedure TCalibFrm.SetCalibrationValue ;
 // Set calibration value
 // ---------------------
 begin
-    if MainFrm.ADCChannelVoltsPerUnit[cbChannels.ItemIndex] = 0. then
-       MainFrm.ADCChannelVoltsPerUnit[cbChannels.ItemIndex] := 1. ;
-    edCalibrationValue.Units := MainFrm.ADCChannelUnits[cbChannels.ItemIndex] ;
+
+    edCalibrationValue.Units := MainFrm.SESLabIO.ADCChannelUnits[cbChannels.ItemIndex] ;
     edCalibrationValue.Value := Mainfrm.ADCCalibrationValue[cbChannels.ItemIndex] ;
+    edUnits.Text :=  MainFrm.SESLabIO.ADCChannelUnits[cbChannels.ItemIndex] ;
+
     end ;
 
 
@@ -114,10 +122,11 @@ procedure TCalibFrm.Timer1Timer(Sender: TObject);
 
 begin
 
-{ Read A/D channel }
+    { Read A/D channel }
 
      iADC := Mainfrm.SESLabIO.ReadADC( cbChannels.ItemIndex ) ;
-     V := (iADC * MainFrm.ADCChannelVoltageRange[cbChannels.ItemIndex])/(Mainfrm.ADCMaxValue*Mainfrm.ADCChannelGain[cbChannels.ItemIndex]) ;
+     V := (iADC * MainFrm.SESLabIO.ADCChannelVoltageRange[cbChannels.ItemIndex])/
+          (Mainfrm.SESLabIO.ADCMaxValue*Mainfrm.SESLabIO.ADCChannelGain[cbChannels.ItemIndex]) ;
      edVoltageLevel.Value := V ;
 
      if NewState then begin
@@ -212,12 +221,19 @@ procedure TCalibFrm.bFinishClick(Sender: TObject);
   ------------------------------}
 var
    VDiff,OldFactor : Single ;
+   ADCScaleTo16Bit : Integer ;
 begin
+
+     ADCScaleTo16Bit := (MainFrm.ADCMaxValue+1) div MainFrm.SESLabIO.ADCMaxValue ;
+
      Mainfrm.ADCCalibrationValue[cbChannels.ItemIndex] := edCalibrationValue.Value ;
+     MainFrm.SESLabIO.ADCChannelUnits[cbChannels.ItemIndex] := edUnits.Text ;
+
      VDiff := VCal - VZero ;
      OldFactor := Mainfrm.ADCChannelVoltsPerUnit[cbChannels.ItemIndex] ;
      try
-        Mainfrm.ADCChannelVoltsPerUnit[cbChannels.ItemIndex]  :=  VDiff / Mainfrm.ADCCalibrationValue[cbChannels.ItemIndex] ;
+        Mainfrm.SESLabIO.ADCChannelVoltsPerUnit[cbChannels.ItemIndex] := (VDiff/Mainfrm.ADCCalibrationValue[cbChannels.ItemIndex])
+                                                                         *ADCScaleTo16Bit ;
      except
         on EZeroDivide do begin
            ShowMessage('Calibration step too small! Reverting to old value.');
@@ -256,5 +272,16 @@ begin
        SetCalibrationValue ;
        end ;
     end;
+
+procedure TCalibFrm.edUnitsKeyPress(Sender: TObject; var Key: Char);
+begin
+    edCalibrationValue.Units := edUnits.Text ;
+    end;
+
+procedure TCalibFrm.edUnitsChange(Sender: TObject);
+begin
+     edCalibrationValue.Units := edUnits.Text ;
+     MainFrm.SESLabIO.ADCChannelUnits[cbChannels.ItemIndex] := edUnits.Text ;
+     end;
 
 end.

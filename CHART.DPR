@@ -12,9 +12,9 @@ uses
   SetupRec in 'SetupRec.pas' {SetupRecFrm},
   SetupCED in 'SetupCED.pas' {SetupCEDFrm},
   SetupSpec in 'SetupSpec.pas' {SetupSpeFrm},
-  Maths in '..\Components\Maths.pas',
   PRINTREC in 'PRINTREC.PAS' {PrintRecFrm},
   EditMarkers in 'EditMarkers.pas' {EditMarkersFrm},
+  Windows in 'Windows.pas',
   LabInterfaceSetup in 'LabInterfaceSetup.pas' {LabInterfaceSetupFrm};
 
 {$R *.RES}

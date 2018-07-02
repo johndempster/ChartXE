@@ -1,0 +1,3844 @@
+{ ==================================================================
+  CHART - Digital Chart Recorder Program (c) J. Dempster 1996-2005
+  ===================================================================
+13/6/96 V1.2a ... Divide by zero on printing fixed }
+{ 18/6/96 V1.3 .... Whole data file can now be printed
+                    R-R interval option added }
+{ 1/7/96 V1.3a .... Minor changes ... Main Form now sizes itself when opened }
+{ 9/8/96 V1.4 .... Stimulator pulse width can be changed
+                   Trace colours can be changed }
+{ 26/9/96 V1.4a ... sampling interval limited to > 10msec
+                    HR and RMS disabled when only one channel }
+{ 27/9/96 V1.4b ... Gain marker now read correctly when gain reduced }
+{ 2/10/96 V1.4c ... Marker list increased to 40, gain reduced to 30
+                    Trap inserted to prevent execution of Timer routine
+                    until it has completed }
+{ 7/10/96 V1.5 ... Digital DC Offset removed, CEC 1902 real offset added }
+{ 9/10/96 V1.6 ... Header block increased to 4096 bytes }
+{ 18/11/96 V1.7 ... Header block increased 8192 bytes
+                    New file/path names now tested for validity}
+{ 24/4/97 V1.7a ... Support for Lab-PC 1200 added }
+{ 24/7/97 V1.7b ... Program opens in centre of screen }
+{ 19/1/98 V1.8 .... New File now tests for valid path
+                    Program now exits by common CLOSE pathway
+                    Heart rate detection threshold now deals with small numbers
+                    correctly
+                    NIDAQ.DLL now loaded dynamically }
+{ 2/98 V1.8a ... DMA support disabled to avoid updating delays seen on
+                 some computers }
+{ 17/8/98 V2.0 ... Now compiles using 32 bit compiler }
+{ 13/10/98 V2.1 ... Reads gain/filter lists from CED 1902 }
+{ 15/10/98 V2.1a ... Format error on whole file printing fixed
+                     Sampling interval limited to max. of 1 sec }
+{ 26/7/99 V2.2 .... Stop-watch added }
+{ 25/10/99 V2.3 ... Automatic setting of heart beat detection threshold added
+                    Heart rate zero leve
+                    Fetch t0 button added
+                    Traces now limited to valid channel display area
+  1/11/99 V2.3a ... HR threshold now based on max. difference between
+                    signal and running mean baseline
+                    }
+{ 11/11/99 V2.4 ... Now uses same lab. int. routines as WinWCP }
+{ 20/9/00 V2.5 .... New file now creates file name automatically }
+{ 7/2/01 V2.6 ..... Now uses SESLabIO component
+                    Display width slider added
+                    Much tidying up done }
+{ 22/9/02 V2.7 .... Communications with CED 1902 via COM port now works under Windows NT/2000
+                    Exception when no chart.ini exists fixed
+                    Initialisation now chart.ini and stored in default data folder}
+{18/11/02 V2.8 .... Compiled under delphi V7}
+{7/1/03 V3.0 ...... 16 bit A/D cards now supported
+                    Display routines revised
+                    Slow sampling intervals now work correctly }
+// 20.05.03 V4.0 .. Major update
+//                  Now uses TScopedisplay component to display signals
+//                  Full range of TSESLABIO hardware supported
+// 28.05.03 V4.1 .. Bugs in chart markers fixed
+// 18.08.03 V4.2 .. A/D voltage now set individuallyb for each channel
+// 1.10.03 V4.3 ... Problem with setting AC coupling on 29xx s/n 1902s fixed (use1902.pas)
+//                  Data files cannot be saved on floppy, network or CD drives
+// 7.10.03 V4.4 ... Problems with setting of channel calibration factors fixed
+// 23.10.03 V4.5 .. CED 1902 no longer updated when settings loaded
+// 24.10.03 V4.6 .. Users can no longer erase files using File/New
+//                  Open and save folders now stored separately
+// 4.11.03 V4.6.1
+// 4.09.04 V4.6.3   Save Data File As.. menu item added
+//                  New Data File.. now adds index number to files
+// 22.09.04 V4.6.4  Cursor readout now keeps up with data
+// 24.09.04 V4.6.5  Calibration bug fixed
+// 28.09.04 V4.6.6  Calibration bug really fixed
+//                  Zero level can now be changed while recording
+// 29.08.04 V4.6.7  Support for COM3 & COM4 ports added
+//                  Now works with CED 1902 attached to USB COM port
+// 01.10.04 V4.6.8  CED 1902 communication should now work after power on/off
+//                  File create error when data folder missing fixed
+// 21.07.05 V4.7.0  Support for M Series interface boards added
+//                  Slider bar position now changes when Start Time changed
+//                  Negative values can no longer be entered as Start Time
+// 04.10.05 V4.8.0  Zoom In/Out X2 menus added
+//                  Window size double/half buttons added
+//                  Recent files menu added
+//                  Initial data file name now has date in it.
+// 14.11.05 V4.8.1  Stimulus pulse generation now works
+// 10.08.06 V4.8.2  Now stores root directory correctly when used as storage folder
+//                  CreateNewDataFile can no longer delete files.
+//                  Data file no longer opened automatically when program started
+// 18.09.06 V4.8.4  Referenced Single Ended (RSE) analog input option added
+//                  SaveHeader not called when no file open
+// 27.09.06 V4.8.5  LoadSettings now opens files read-only (to allow reading from RO folders)
+// 15.10.06 V4.8.6  New Data File now automatically changes save directory back to c:\chart data
+//                  if an invalid directory selected. Save File As no longer allows over-writing of
+//                  existing file.
+// 16.10.06 V4.8.7  ADCInputMode no longer loaded from settings file
+// 30.9.07 V4.8.8   Vertical magnification now easier and buttons added to display
+//                  Display window duration now stored in settings
+// 04.10.07 V4.8.9  Secs/mins switch now works correctly during live recording
+// 01.09.08 V4.9.0  Updated with new scope component. Now displays better chosen
+//                  vertical axis ticks
+// 07.12.11 V5.0
+// 20.09.12 V5.0.1  Zero level no longer reverts to zero when Record pressed
+//                  and is stored correctly in INI and .CHT files.
+//                  Laboratory interface settings are stored in chart.INI, and saving of settings
+//                  by SESLABIO component is disabled by SESLABIO.DoNotSaveSettings := True
+// 28.09.12 V5.0.2  Display vertical magnification and position now retained when Record start/stopped.
+// 18.01.13 V5.0.3  SaveHeader() ADCNumChannels written to header rather than SESLabIO.ADCNumChannels
+//                  to prevent corruption of number of channels in file when file differs from setting
+//                  in laboratory interface
+// 23.07.13 V5.0.4  Warning message no longer produced when unsupported A/D input mode changed (NIDAQMXUnit.pas)
+//                  Software timed stimulus output added for USB-6008/8 devices with time resolution of 50ms
+// 26.08.13 V5.0.5  New file now requested when Record clicked ONLY when CED 1902 gain changed.
+// 18.09.13 V5.0.6  .n.cht sequence number now autmatically added to file name when channel scaling changed.
+//                  Channel scaling can now be changed without user opening a new file.
+//                  DC offset facility on AO1 added
+//                  ADCCalibrationValue now stored in settings file not .CHT file
+//                  Units can now be set in calibration wizard
+//                  Calibration value now retained in calibration wizard
+// 23.09.13 V5.0.7  Settings now loaded again after lab. interface type set to ensure
+//                  A/D voltage range set correctly. ADCMaxValue/ADCMinValue set to 15 bit range when record pressed
+//                  CheckNewDataFileRequired now checks sampling interval
+// 03.12.13 V5.0.8  Stimulator On and Off voltages can now be set
+// 10.12.13 V5.0.9  Data files can now only be saved on system disk.
+// 24.06.15 V5.1.0  Ported from Delphi & code.
+// 18.12.15 V5.1.1  Input channels can now be remapped
+
+unit Main;
+
+interface
+
+uses
+  SysUtils, WinTypes, WinProcs, Messages, Classes, Graphics, Controls,
+  Forms, Dialogs, StdCtrls, ExtCtrls, Spin, Shared, Menus, Grids,
+  StimSet,About, ClipBrd, Table, Calib,
+  use1902, ComCtrls, ValEdit, SESLabIO, mmsystem, ValidatedEdit,
+  ScopeDisplay, math, DateUtils, strutils, windows,shellapi, vcl.htmlhelpviewer ;
+
+const
+
+     StimDACChan = 0 ;
+     DCOffsetDACChan = 1 ;
+     NumDACChannels = 2 ;
+     MaxChannels = 8 ;
+     ChannelLimit = MaxChannels-1 ;
+     MaxDisplayScans = 2000 ;
+     ADCBufferSize = 4096*4 ;
+     DataFileExtension = '.cht' ;
+     SettingsFileExtension = '.set' ;
+     BAKFileExtension = '.bak' ;
+     MaxMarkers = 50 ;
+     MinDT = 0.001 ;
+     MaxDT = 10.0 ;
+     HeaderSize = 8192 ;
+     //DACdt = 0.002 ;
+     MinScansPerWriteBuf = 16 ;
+     NumWriteBufsMax = 32768 div 16 ;
+
+
+type
+
+     // Display cursors record
+     TCursors = record
+         Base : Array[0..ChannelLimit] of Integer ;
+         C0 : Integer ;
+         C1 : Integer ;
+         end ;
+
+     // Circular write buffer control record
+     TWriteBufs = record
+        NumScans : Integer ;          // Total number of scans all buffers
+        NumSamples : Integer ;        // Total number of samples
+        NumBufs : Integer ;           // No. of sub-buffers in circular buffer
+        NumScansPerBuf : Integer ;    // No. of scans in sub-buffer
+        NumSamplesPerBuf : Integer ;  // No. of samples on sub-buffer
+        NumBytesPerBuf : Integer ;    // No. of bytes in sub-buffer
+        ActiveBuf : Integer ;         // Index no. of sub-buffer currently filling
+        WriteBuf : Integer ;          // Index no. of next sub-buffer to be written
+        BufStart : Array[0..NumWriteBufsMax-1] of Integer ; // Sub-buffer starting indexes (in ADC^)
+        BufEnd : Array[0..NumWriteBufsMax-1] of Integer ;   // Sub-buffer end indexes (in ADC^)
+        NumScansPerBlock : Integer ;         // No. of scans in display compression block
+        NumPointsPerBlock : Integer ;        // No. display points per block
+        BlockCount : Integer ;               // Compression block scan counter
+        DispPointer : Integer ;              // Display buffer index
+        NumBlocksDisplayed : Integer ;       // No. of blocks displayed
+        MaxBlocksDisplayed : Integer ;       // Max. no. of blocks in display
+        OldestScan : Integer ;               //
+        LatestScan : Integer ;               // Index of latest available scan (ADC^)
+        EmptyPointer : Integer ;             // Index of empty region (ADC^)
+        yMin : Array[0..ChannelLimit] of Integer ;
+        yMax : Array[0..ChannelLimit] of Integer ;
+        yMinAt : Array[0..ChannelLimit] of Integer ;
+        yMaxAt : Array[0..ChannelLimit] of Integer ;
+        end ;
+
+     // Stimulator control record
+     TStimulator = record
+          Running : Boolean ;
+          Delay : Single ;
+          GroupInterval : Single ;
+          PulseFrequency : Single ;
+          PulsesPerGroup : LongInt ;
+          PulseWidth : Single ;
+          PulseVOn : Single ;
+          PulseVOff : Single ;
+          RepeatPeriodmsec : LongInt ;
+          TimeForNextGroup : LongInt ;
+          NumDACPoints : LongInt ;
+          dtDAC : Single ;
+
+          end ;
+
+     // Printer/metafile properties record
+     TPageSettings = record
+          FontName : string ;
+          FontSize : LongInt ;
+          LineThickness : LongInt ;
+          ShowLines : boolean ;
+          MarkerSize : LongInt ;
+          ShowMarkers : boolean ;
+          LeftMargin : single ;
+          RightMargin : single ;
+          TopMargin : single ;
+          BottomMargin : single ;
+          MetafileWidth : Integer ;
+          MetafileHeight : Integer ;
+          WholeFile : Boolean ;
+          end ;
+
+     TRMS = record
+         InUse : Boolean ;
+         Buf : array[0..100] of LongInt ;
+         Pointer : LongInt ;
+         NumAverage : LongInt ;
+         Sum : Single ;
+         Scale : Single ;
+         FromChannel : LongInt ;
+         ToChannel : LongInt ;
+         yMax : Integer ;
+         yMin : Integer ;
+         end ;
+
+     THR = record
+         InUse : Boolean ;
+         BeatCounter : LongInt ;
+         DeadTime : LongInt ;
+         LoRateLimit : LongInt ;
+         Baseline : Integer ;
+         Threshold : LongInt ;
+         HeartRate : Integer ;
+         Scale : Single ;
+         MaxScale : Single ;
+         FromChannel : LongInt ;
+         ToChannel : LongInt ;
+         yMax : Integer ;
+         yMin : Integer ;
+         ECG : SmallInt ;
+         DisplayHR : Boolean ;
+         SetThreshold : Boolean ;
+         MaxLevel : SmallInt ;
+         ThresholdCounter : Integer ;
+         PercentageThreshold : single ;
+         end ;
+
+     // Digital low pass filter control record
+     TDigitalFilter = record
+         InUse : Boolean ;
+         FirstSample : Boolean ;
+         Factor : Single ;
+         y : Array[0..ChannelLimit] of SmallInt ;
+         end ;
+
+  TMainFrm = class(TForm)
+    Timer: TTimer;
+    MainMenu: TMainMenu;
+    mnFile: TMenuItem;
+    Exit1: TMenuItem;
+    N1: TMenuItem;
+    mnPrintSetup: TMenuItem;
+    mnPrint: TMenuItem;
+    mnOpen: TMenuItem;
+    mnNew: TMenuItem;
+    mnSetup: TMenuItem;
+    OpenDialog: TOpenDialog;
+    SaveDialog: TSaveDialog;
+    RecordGroup: TGroupBox;
+    bRecord: TButton;
+    bStop: TButton;
+    mnEdit: TMenuItem;
+    mnCopyData: TMenuItem;
+    mnHelp: TMenuItem;
+    About1: TMenuItem;
+    Contents1: TMenuItem;
+    GroupBox2: TGroupBox;
+    meCursor: TMemo;
+    PrinterSetupDialog: TPrinterSetupDialog;
+    MarkerGroup: TGroupBox;
+    edMarker: TEdit;
+    bMark: TButton;
+    bShowTable: TButton;
+    ZoomPopup: TPopupMenu;
+    mnCalibrate: TMenuItem;
+    StimGroup: TGroupBox;
+    bStimOnOff: TButton;
+    edIdentLine: TEdit;
+    Label5: TLabel;
+    mnView: TMenuItem;
+    mnZoomIn: TMenuItem;
+    mnZoomOutAll: TMenuItem;
+    lbTZero: TLabel;
+    edStimStatus: TEdit;
+    EdNumMarkers: TEdit;
+    TimerGrp: TGroupBox;
+    edTimer: TEdit;
+    bReset: TButton;
+    bStartTimer: TButton;
+    bStopTimer: TButton;
+    bGetTZero: TButton;
+    bResetHRMonitor: TButton;
+    N3: TMenuItem;
+    mnSetupRec: TMenuItem;
+    mnSetupCed: TMenuItem;
+    mnSetupSpec: TMenuItem;
+    mnStimulator: TMenuItem;
+    StatusBar: TStatusBar;
+    rbLiveMode: TRadioButton;
+    rbReplayMode: TRadioButton;
+    mnShowGrid: TMenuItem;
+    GroupBox1: TGroupBox;
+    rbTUnitsSeconds: TRadioButton;
+    rbTUnitsMinutes: TRadioButton;
+    mnCopyImage: TMenuItem;
+    bAddToTable: TButton;
+    N2: TMenuItem;
+    mnEditMarkers: TMenuItem;
+    N4: TMenuItem;
+    mnSaveSettings: TMenuItem;
+    mnLoadSettings: TMenuItem;
+    mnChan0: TMenuItem;
+    mnChan1: TMenuItem;
+    mnChan2: TMenuItem;
+    mnChan3: TMenuItem;
+    mnChan4: TMenuItem;
+    mnChan5: TMenuItem;
+    mnChan6: TMenuItem;
+    mnChan7: TMenuItem;
+    mnZoomIn0: TMenuItem;
+    mnZoomIn1: TMenuItem;
+    mnZoomIn2: TMenuItem;
+    mnZoomIn3: TMenuItem;
+    mnZoomIn4: TMenuItem;
+    mnZoomIn5: TMenuItem;
+    mnZoomIn6: TMenuItem;
+    mnZoomIn7: TMenuItem;
+    mnSaveAs: TMenuItem;
+    mnZoomOut: TMenuItem;
+    mnZoomOut0: TMenuItem;
+    mnZoomOut1: TMenuItem;
+    mnZoomOut2: TMenuItem;
+    mnZoomOut3: TMenuItem;
+    mnZoomOut4: TMenuItem;
+    mnZoomOut5: TMenuItem;
+    mnZoomOut6: TMenuItem;
+    mnZoomOut7: TMenuItem;
+    N5: TMenuItem;
+    mnRecentFile0: TMenuItem;
+    mnRecentFile1: TMenuItem;
+    mnRecentFile2: TMenuItem;
+    mnRecentFile3: TMenuItem;
+    TDisplayPanel: TPanel;
+    edTDisplay: TValidatedEdit;
+    bTDisplayDouble: TButton;
+    bTDisplayHalf: TButton;
+    lbTDisplay: TLabel;
+    edStartTime: TValidatedEdit;
+    lbStartTime: TLabel;
+    sbStartTime: TScrollBar;
+    scDisplay: TScopeDisplay;
+    mnLabInterface: TMenuItem;
+    mnSaveFile: TMenuItem;
+    SESLabIO: TSESLabIO;
+    mnSaveToASCIIDataFile: TMenuItem;
+    DCOffsetGrp: TGroupBox;
+    sbDCOffset: TScrollBar;
+    edDCOffset: TValidatedEdit;
+    procedure bRecordClick(Sender: TObject);
+    procedure TimerTimer(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure bStopClick(Sender: TObject);
+    procedure sbStartTimeChange(Sender: TObject);
+    procedure mnNewClick(Sender: TObject);
+    procedure mnOpenClick(Sender: TObject);
+    procedure FormResize(Sender: TObject);
+    procedure mnPrintClick(Sender: TObject);
+    procedure Exit1Click(Sender: TObject);
+    procedure mnPrintSetupClick(Sender: TObject);
+    procedure About1Click(Sender: TObject);
+    procedure bMarkClick(Sender: TObject);
+    procedure bShowTableClick(Sender: TObject);
+    procedure mnCalibrateClick(Sender: TObject);
+    procedure bStimOnOffClick(Sender: TObject);
+    procedure edIdentLineChange(Sender: TObject);
+    procedure Contents1Click(Sender: TObject);
+    procedure HowtoUseHelp1Click(Sender: TObject);
+    procedure SearchforHelpOn1Click(Sender: TObject);
+    procedure mnZoomInClick(Sender: TObject);
+    procedure mnZoomOutAllClick(Sender: TObject);
+    procedure bResetClick(Sender: TObject);
+    procedure bStartTimerClick(Sender: TObject);
+    procedure bStopTimerClick(Sender: TObject);
+    procedure bGetTZeroClick(Sender: TObject);
+    procedure bResetHRMonitorClick(Sender: TObject);
+    procedure edTDisplayKeyPress(Sender: TObject; var Key: Char);
+    procedure FormShow(Sender: TObject);
+    procedure mnSetupRecClick(Sender: TObject);
+    procedure mnSetupCedClick(Sender: TObject);
+    procedure mnSetupSpecClick(Sender: TObject);
+    procedure mnStimulatorClick(Sender: TObject);
+    procedure edStartTimeKeyPress(Sender: TObject; var Key: Char);
+    procedure mnShowGridClick(Sender: TObject);
+    procedure scDisplayCursorChange(Sender: TObject);
+    procedure rbTUnitsSecondsClick(Sender: TObject);
+    procedure rbLiveModeClick(Sender: TObject);
+    procedure rbReplayModeClick(Sender: TObject);
+    procedure rbTUnitsMinutesClick(Sender: TObject);
+    procedure mnCopyDataClick(Sender: TObject);
+    procedure mnCopyImageClick(Sender: TObject);
+    procedure bAddToTableClick(Sender: TObject);
+    procedure edMarkerKeyPress(Sender: TObject; var Key: Char);
+    procedure mnEditMarkersClick(Sender: TObject);
+    procedure mnLoadSettingsClick(Sender: TObject);
+    procedure mnSaveSettingsClick(Sender: TObject);
+    procedure mnZoomIn0Click(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+    procedure mnSaveAsClick(Sender: TObject);
+    procedure mnZoomOut0Click(Sender: TObject);
+    procedure mnRecentFile0Click(Sender: TObject);
+    procedure bTDisplayDoubleClick(Sender: TObject);
+    procedure bTDisplayHalfClick(Sender: TObject);
+    procedure mnLabInterfaceClick(Sender: TObject);
+    procedure mnSaveFileClick(Sender: TObject);
+    procedure mnSaveToASCIIDataFileClick(Sender: TObject);
+    procedure sbDCOffsetChange(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure edDCOffsetKeyPress(Sender: TObject; var Key: Char);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+
+
+  private
+    { Private declarations }
+  RecordingInProgress : Boolean ;    // Recording in progress flag
+  LiveMode : Boolean ;               // Live display mode flag
+  TimerInProgress :Boolean ;         // Timer processing in progress
+
+  ADC : PSmallIntArray ;        // A/D data buffer pointer (scaled to 16 bit range)
+  ADCRaw : PSmallIntArray ;     // A/D raw )unscaled) data buffer pointer
+  ADCScaleTo16Bit : Integer ;   // Scaled A/D data to 16 bit range
+  DAC : PSmallIntArray ;        // D/A data buffer pointer
+  DACPointer : Integer ;        // D/A update pointer (non-waveform update)
+  NumDACPoints : Integer ;      // No. of points in DAC
+  DACUpdateInterval : single ;  // D/A update interval (s)
+  DACV : Array[0..NumDACChannels-1] of Single ;
+  DCOffsetScale : Single ;      // DC offset slider -> V scale factor
+
+  DisplayBuf : TSmallIntArray ; // Data display buffer pointer
+  WriteBufs : TWriteBufs ;      // Circular A/D data buffer control record
+  Emptyflag : Integer ;         // Empty A/D sample buffer flag
+  SumProcTime : Integer ;
+  nProcTime : Integer ;
+  AbortOperation : Boolean ;
+
+   // Stop watch
+   StopWatchRunning : Boolean ;    // Stop watch running flag
+   ElapsedTime : single ;         //
+   ElapsedTimeStart  : single ;
+   NextTimeDisplay : single ;
+   DACWaveformSupported : Boolean ; // TRUE = D/A waveform output supported
+
+    procedure EnableMenus( MenuState : Boolean ) ;
+    procedure ClearTempFile ;
+    function CreateIndexedFileName : String ;
+
+    procedure SaveHeader( FHandle : Integer ) ;
+    procedure GetHeader( FHandle : Integer ) ;
+    procedure Backup ;
+    procedure InitialiseHeartRate ;
+    procedure ComputeHeartRate( var Buf : Array of SmallInt ; ScanStart : Integer ) ;
+    procedure InitialiseRMS ;
+    procedure ComputeRMS( var Buf : Array of SmallInt ; ScanStart : Integer ) ;
+    procedure InitialiseDisplay ;
+    procedure StartADC ;
+    procedure DisplayFromFile ;
+    procedure DisplayLive( Initialise : Boolean ) ;
+    procedure SetControlsToRecordingMode( Enabled : Boolean ) ;
+    procedure SetControlsForLiveMode( Enabled : Boolean ) ;
+    procedure StartStimulator ;
+    procedure StopStimulator ;
+
+  public
+    { Public declarations }
+    ProgName : String ;              // Program name
+    VersionNum : string ;            // Program version number
+    Cursors : TCursors ;             // Display cursor record
+
+    MarkerList : TStringList ;       // Chart markers list
+
+    LabInterfaceType : Integer ;     // Laboratory interface type
+    DeviceNum : Integer ;            // Laboratory interface device
+    ADCInputMode : Integer ;         // A/D input mode
+    ADCNumChannels : Integer ;
+    ADCSamplingInterval : Single ;
+    ADCMaxValue : Integer ;
+    ADCMinValue : Integer ;
+    ADCChannelVoltageRange : Array[0..ChannelLimit] of Single ;
+    ADCChannelUnits : Array[0..ChannelLimit] of String ;
+    ADCChannelName : Array[0..ChannelLimit] of String ;
+    ADCChannelGain : Array[0..ChannelLimit] of Single ;
+    ADCChannelVoltsPerUnit : Array[0..ChannelLimit] of Single ;
+    ADCChannelScale : Array[0..ChannelLimit] of Single ;
+    ADCChannelZero : Array[0..ChannelLimit] of Integer ;
+    ADCChannelOffset : Array[0..ChannelLimit] of Integer ;
+    ADCChannelYMin : Array[0..ChannelLimit] of Single ;
+    ADCChannelYMax : Array[0..ChannelLimit] of Single ;
+
+    NewFileNeeded :Boolean ;  // TRUE = Calibration changed, new file needed when recording
+
+    Stimulator : TStimulator ;          // Stimulator control record
+
+   RMS : TRMS ;
+   HR : THR ;
+   MaxDACValue : Integer ;   // Maximum D/A integer value
+   MinDACValue : Integer ;   // Minimum D/A integer value
+
+   // Program settings
+   ChartDirectory : string ;    // Default data/settings files directory
+   SaveDirectory : string ;     // Current folder for recording data
+//   OpenDirectory : string ;     // Folder containing last opened file
+   ProgDirectory : string ;     // CHART Program folder
+   TempDataFileName : string ;  // Temporary data file name
+   IniFileName : string ;       // Initialisation file name
+   INIFileHandle : Integer ;    // Initialisation file handle
+   //LaboratoryInterface : Integer ;      // Laboratory interface type number
+   RecordingDisabled : Boolean ;  // Recording disabled flag
+   RecentFiles : Array[0..3] of string ;
+   RecentFilesPointer : Integer ;
+   TZeroScan : Integer ;                // Scan # defined as zero time
+   TScale : single ;                    // Time readout scaling factor
+   TUnits : string ;                    // Time readout units
+   Plot : TPageSettings ;               // Printer/metafile page settings
+   TimeBarValue : Single ;
+   ADCCalibrationBar : array[0..ChannelLimit] of Single ;
+   ADCCalibrationValue : array[0..ChannelLimit] of Single ;
+   CursorValue : array[0..ChannelLimit] of Single ;
+   TimeZero : Single ;
+   //SamplingInterval : Single ;
+   CursorTime : Single ;
+
+   // Digital filter control record
+   DigitalFilter : TDigitalFilter ;
+
+   // Data file header variables
+   // --------------------------
+   SaveFileName : string ;       // Name of file to save data to at end of experiment
+   FileSaveRequired : Boolean ;  // TRUE = currently open file needs saved
+   FileHandle : integer ;         // Handle to open (-1 = no file)
+   NumBytesInHeader : LongInt ;   // No. of bytes in file header
+   NumSamplesInFile : LongInt ;   // No. of A/D samples in file
+   IdentLine : string ;           // File identification text
+
+   RMSInUse : Boolean ;
+   RMSFromChannel : LongInt ;
+   RMSToChannel : LongInt ;
+   RMSNumPoints : LongInt ;
+   HRInUse : Boolean ;
+   HRFromChannel : LongInt ;
+   HRToChannel : LongInt ;
+
+   BAKFileName : String ;            // Backup file name
+   BackupEnabled : Boolean ;         // Automatic backup enabled flag
+   BackupInterval : Single ;         // Backup interval (s)
+   NextBackupTime : Single ;           // System time for next backup (s)
+
+   procedure LoadSettingsFile( const IniFileName : string ;
+                               LoadLabInterfaceSettings : Boolean );
+   procedure SaveSettingsFile( const IniFileName : string ;
+                               SaveLabInterfaceSettings : Boolean );
+   procedure SetZoomPopupMenu ;
+   procedure SaveToDataFile( ToFileName : String ) ;
+   procedure SaveToASCIIDataFile( ToFileName : String ) ;
+   procedure LoadFromDataFile( FromFileName : String ) ;
+
+   procedure AddToRecentFilesList( FileName : String ) ;
+   function GetDirectory( FileName : String ) : String ;
+   procedure SetDCOffset ;
+   function CheckNewDataFileNeeded : Boolean ;
+  end;
+
+var
+  MainFrm : TMainFrm ;
+
+implementation
+
+uses SetupRec, SetupCED, SetupSpec, PrintRec, EditMarkers ,
+  LabInterfaceSetup;
+
+{$R *.DFM}
+
+procedure TMainFrm.FormShow(Sender: TObject);
+{ ------------------------------------
+  Initialisations when form is created
+  ------------------------------------}
+var
+   ch,i : Integer ;
+   TempBuf : Array[0..255] of char ;
+   SysDrive : String ;
+   ParamFileName,LocalHelpFile : String ;
+   Buf : PChar ;
+begin
+
+    Top := 20 ;
+    Left := 20 ;
+    Width := Screen.Width - Left - 20 ;
+    Height := Screen.Height - Top - 50 ;
+
+    VersionNum := 'V5.1.1' ;
+    ProgName := 'Chart ' + VersionNum ;
+    Caption := ProgName ;
+
+    // Initialise with recording enabled
+    RecordingDisabled := False ;
+    FileSaveRequired := False ;
+
+    // Create buffers
+    MarkerList := TStringList.Create ;
+    edNumMarkers.text := format('%d',[MaxMarkers-MarkerList.Count]);
+
+    // Find/create save directory "<sysdrive>\Chart Data"
+    GetWindowsDirectory( TempBuf, High(TempBuf) ) ;
+    SYSDrive := ExtractFileDrive(String(TempBuf)) ;
+    ChartDirectory := SYSDrive + '\Chart Data' ;
+    if not DirectoryExists(ChartDirectory) then begin
+       if not CreateDir(ChartDirectory) then
+          RecordingDisabled := True ;
+          StatusBar.SimpleText := 'WARNING! Unable to create'
+                                  + ChartDirectory
+                                  + ' Recording disabled!' ;
+       end ;
+
+    // Temporary data file used to store live
+    Buf := AllocMem( 512 ) ;
+    GetTempFileName( PChar(ChartDirectory),PChar('CHA'),0,Buf ) ;
+    TempDataFileName := String(Buf) ;
+    FreeMem(Buf) ;
+
+    // Get directory which contains Chart program
+    ProgDirectory := ExtractFilePath(ParamStr(0)) ;
+
+    // Find help file (copy to \Chart Data if required)
+    // Note. Help file copied to local disk to avoid block on running .CHM files from network drives)
+    Application.HelpFile := ProgDirectory + 'chart.chm' ;
+    LocalHelpFile := ChartDirectory + '\chart.chm' ;
+ //   if not FileExists(LocalHelpFile) then begin
+       CopyFile( PCHar(Application.HelpFile),PCHar(LocalHelpFile),  false ) ;
+ //      end ;
+    if FileExists(LocalHelpFile) then Application.HelpFile := LocalHelpFile ;
+
+    // Program initialisation file Chart.ini
+    // is stored in <sysdrive>\Chart Data
+    IniFileName := ChartDirectory  + '\Chart.ini' ;
+    if DirectoryExists(ChartDirectory) then begin
+       SaveDirectory := ChartDirectory ;
+       end ;
+
+     LabInterfaceType := NoInterface16 ;
+     DeviceNum := 1 ;
+     ADCInputMode := imDifferential ;
+
+     SaveFileName := '' ;
+     FileHandle := -1 ;
+     NumBytesInHeader := HeaderSize ;
+     NumSamplesInFile := 0 ;
+     IdentLine := ' Put Name/Group/Experiment info. here ' ;
+     edTDisplay.Value := 100. ;
+
+     // Set low pass digital filter = 1.0 (disabled)
+     DigitalFilter.Factor := 1. ;
+
+     Stimulator.PulseFrequency := 10. ;
+     Stimulator.GroupInterval := 1. ;
+     Stimulator.PulsesPerGroup := 1 ;
+     Stimulator.PulseWidth := 0.002 ;
+     Stimulator.PulseVOn := 5.0 ;
+     Stimulator.PulseVOff := 0.0 ;
+     Stimulator.Running := False ;
+
+     ADCMaxValue := 32767 ;
+     ADCMinValue := -32768 ;
+     for ch := 0 to ChannelLimit do begin
+         ADCChannelVoltageRange[ch] := 10.0 ;
+         ADCChannelUnits[ch] := 'V';
+         ADCChannelName[ch] := format('Ch.%d',[ch]);
+         ADCChannelGain[ch] := 1.0 ;
+         ADCChannelVoltsPerUnit[ch] := 1.0 ;
+         ADCChannelScale[ch] := 1.0 ;
+         ADCChannelOffset[ch] := ch ;
+         ADCChannelZero[ch] := 0 ;
+         ADCChannelYMax[ch] := ADCMaxValue ;
+         ADCChannelYMin[ch] := ADCMinValue ;
+         end ;
+
+     { Initial values for channel scaling factors }
+
+     TUnits := 's' ;
+     TScale := 1.0 ;
+     edStartTime.Scale := TSCale ;
+     edStartTime.Units := TUnits ;
+     //edStartTime.LoLimit := 0.0 ;
+     edTDisplay.Value := 100.0 ;
+     edTDisplay.Scale := TSCale ;
+     edTDisplay.Units := TUnits ;
+
+     if TUnits = 'm' then rbTUnitsMinutes.Checked := True
+                     else rbTUnitsMinutes.Checked := False ;
+     rbTUnitsSeconds.Checked := not rbTUnitsMinutes.Checked ;
+
+     edStimStatus.text := ' OFF ' ;
+     for i := 0 to High(DACV) do DACV[i] := 0.0 ;
+     DACV[StimDACChan] := Stimulator.PulseVOff ;
+
+     { Clear A/D voltage/gain settings table }
+
+     // Default RMS computed channel settings
+     RMS.InUse := False ;
+     RMS.FromChannel := 0 ;
+     RMS.ToChannel := 0 ;
+     RMS.NumAverage := 10 ;
+
+     // Default heart rate computed channel settings
+     HR.InUse := False ;
+     bResetHRMonitor.Enabled := False ;
+     HR.FromChannel := 0 ;
+     HR.ToChannel := 0 ;
+     HR.MaxScale := 200. ;
+     HR.PercentageThreshold := 50.0 ;
+     HR.DisplayHR := True ;
+
+     // CED 1902 default settings
+     CED1902.Input := 3 ;
+     CED1902.Gain := 1 ;
+     CED1902.GainValue := 1. ;
+     CED1902.InUse := False ;
+     CED1902.ComPort := 1 ;
+     CED1902.LPFilter := 0 ;
+     CED1902.HPFilter := 0 ;
+     CED1902.NotchFilter := 0 ;
+     CED1902.ACCoupled := 0 ;
+
+     // Printer page settings
+     Plot.FontName := 'Arial' ;
+     Plot.LeftMargin := 25.0 ; // mm
+     Plot.RightMargin := 80.0 ;
+     Plot.TopMargin := 25.0 ;
+     Plot.BottomMargin := 150.0 ;
+     Plot.LineThickness := 2 ;
+     Plot.FontSize := 10 ;
+     Plot.MetafileWidth := 600 ;
+     Plot.MetafileHeight := 400 ;
+     Plot.WholeFile := False ;
+
+     // Automatic data file backup
+     BackupEnabled := False ;         // Automatic backup disabled
+     BackupInterval := 60.0 ;         // Backup interval (s)
+     BAKFileName := '' ;
+
+     // Allocated A/D buffer
+     GetMem( ADC, ADCBufferSize*NumWriteBufsMax*MaxChannels ) ;
+
+     // Clear recent files list
+     for i := 0 to High(RecentFiles) do RecentFiles[i] := '' ;
+
+     // Determine whether a version of Chart is already running
+     // by trying to open C:\Chart Data\chart.ini file
+     // If another version is running, start chart with recording disabled
+     INIFileHandle := -1 ;
+     if FileExists(IniFileName) then begin
+        INIFileHandle := FileOpen( IniFileName, fmOpenWrite ) ;
+        if INIFileHandle < 0 then RecordingDisabled := True
+        else begin
+             // Close INI file to allow LoadSettings to open it
+             FileClose(INIFileHandle ) ;
+             // Load settings from ini file
+             // Note name of last open file returned in FileName
+             LoadSettingsFile( IniFileName, True ) ;
+             // Re-open file to prevent other instances of Chart accessing it
+             INIFileHandle := FileOpen( IniFileName, fmOpenWrite ) ;
+             end ;
+        end
+     else if DirectoryExists(ChartDirectory) then begin
+        // Open file to prevent other instances of Chart accessing it
+        SaveSettingsFile( IniFileName, True ) ;
+        INIFileHandle := FileOpen( IniFileName, fmOpenWrite ) ;
+        end ;
+
+    if not RecordingDisabled then begin
+
+       if SESLabIO.LabInterfaceType <> LabInterfaceType then SESLabIO.LabInterfaceType := LabInterfaceType ;
+       if SESLABIO.DeviceNumber <> DeviceNum then SESLABIO.DeviceNumber := DeviceNum ;
+       if SESLABIO.ADCInputMode <> ADCInputMode then SESLABIO.ADCInputMode := ADCInputMode ;
+       if (not SESLabIO.LabInterfaceAvailable) or (SESLabIO.LabInterfaceType = NoInterface12) or (SESLabIO.LabInterfaceType = NoInterface16) then begin
+          SESLabIO.LabInterfaceType := NIDAQMX ;
+          SESLABIO.DeviceNumber := 1 ;
+          SESLABIO.ADCInputMode := imDifferential ;
+          end ;
+       if not SESLabIO.LabInterfaceAvailable then begin
+          SESLabIO.LabInterfaceType := NationalInstruments ;
+          SESLABIO.DeviceNumber := 1 ;
+          SESLABIO.ADCInputMode := imDifferential ;
+          end ;
+       if not SESLabIO.LabInterfaceAvailable then begin
+          RecordingDisabled := True ;
+          StatusBar.SimpleText := 'WARNING! Laboratory interface hardware not available. Recording Disabled!' ;
+          end ;
+       // Read settings again to ensure A/D voltage range settings are accepted
+       if INIFileHandle >= 0 then begin
+          FileClose(INIFileHandle ) ;
+          LoadSettingsFile( IniFileName, True ) ;
+          INIFileHandle := FileOpen( IniFileName, fmOpenWrite ) ;
+          end ;
+
+       end
+    else begin
+       SESLABIO.LabInterfaceType := NoInterface16 ;
+       end ;
+
+    LabInterfaceType := SESLabIO.LabInterfaceType ;
+    DeviceNum := SESLABIO.DeviceNumber ;
+    ADCInputMode := SESLABIO.ADCInputMode ;
+
+    SESLabIO.DisableDMA_LabPC ;
+    SESLabIO.DoNotSaveSettings := True ; // Do not save settings in XML file
+    SESLabIO.GetADCBuffer( ADCRaw ) ;
+    SESLabIO.GetDACBuffer( DAC ) ;
+    EmptyFlag := SESLabIO.ADCEmptyFlag ;
+    if SESLabIO.ADCInputMode <> MainFrm.ADCInputMode then SESLabIO.ADCInputMode := MainFrm.ADCInputMode ;
+
+    // Fast DAC waveform generation not available for USB-6008 or USB-6009
+    if ANSIContainsText(SESLabIO.LabInterfaceModel,'6008') or
+       ANSIContainsText(SESLabIO.LabInterfaceModel,'6009') then begin
+       DACWaveformSupported := False ;
+       DACUpdateInterval := Timer.Interval*1E-3 ;
+       sbDCOffset.Max := 0 ;
+       end
+    else begin
+       DACWaveformSupported := True ;
+       DACUpdateInterval := 0.002 ;
+       sbDCOffset.Max := 32767 ;
+       end ;
+    DCOffsetScale := SESLabIO.DACVoltageRange[0]/Max(sbDCOffset.Max,-sbDCOffset.Min) ;
+    sbDCOffset.Position := Round(edDCOffset.Value/DCOffsetScale) ;
+
+    // Update DACs
+    if not RecordingDisabled then begin
+       DACV[StimDACChan] := Stimulator.PulseVOff ;
+       DACV[DCOffsetDACChan] := -(sbDCOffset.Position*DCOffsetScale) ;
+       SESLABIO.WriteDACS( DACV, 2 ) ;
+       end ;
+
+    // Disable options not available when recording disabled
+    bRecord.Enabled := not RecordingDisabled ;
+    bStop.Enabled := not RecordingDisabled ;
+    mnNew.Enabled := not RecordingDisabled ;
+    mnCalibrate.Enabled := not RecordingDisabled ;
+
+     // Open a data file if one has been supplied in parameter string }
+     ParamFileName :=  '' ;
+     for i := 1 to ParamCount do begin
+         if i > 1 then ParamFileName := ParamFileName + ' ' ;
+         ParamFileName := ParamFileName + ParamStr(i) ;
+         end ;
+
+     if ANSIContainsText( ExtractFileExt(ParamFileName),'.cht') then begin
+        // Load data file (if name available in parameter string)
+        LoadFromDataFile( ParamFileName ) ;
+        end
+     else begin
+        // Otherwise create new data file
+        SaveFileName := CreateIndexedFileName ;
+        ClearTempFile ;
+        end ;
+     Caption := 'File: ' + SaveFileName ;
+
+     { Arrange various component groups on main form }
+     Resize ;
+
+     Timer.enabled := True ;
+     TimerInProgress := False ;
+
+     // Initialise stop watch
+     ElapsedTime := GetTickCount*0.001 ;
+     ElapsedTimeStart := ElapsedTime ;
+     NextTimeDisplay := 0.0 ;
+     StopWatchRunning := False ;
+
+     SetControlsToRecordingMode( False ) ;
+
+     LiveMode := False ;
+     SetControlsForLiveMode( LiveMode ) ;
+
+     RecordingInProgress := False ;
+
+     // Initialise display channel settings
+     InitialiseDisplay ;
+     // Display signals
+     edStartTime.Value := 0.0 ;
+     DisplayFromFile ;
+
+     StatusBar.SimpleText :=  format('Loaded: %.4g %s (%d Kb)',
+                              [(NumSamplesInFile div scDisplay.NumChannels)*
+                               ADCSamplingInterval*TScale,
+                               TUnits,
+                               NumSamplesInFile div 512]) ;
+
+     mnRecentFile0.Caption := RecentFiles[0] ;
+     mnRecentFile1.Caption := RecentFiles[1] ;
+     mnRecentFile2.Caption := RecentFiles[2] ;
+     mnRecentFile3.Caption := RecentFiles[3] ;
+
+     mnZoomOutAll.Click ;
+
+     end ;
+
+
+procedure TMainFrm.InitialiseDisplay ;
+{ ---------------------------
+  Initialise display settings
+  --------------------------- }
+var
+   ch : Integer ;
+begin
+
+
+     if FileHandle < 0 then Exit ;
+
+     { Set up the number of channels/points in the 'scope display }
+     scDisplay.NumChannels := ADCNumChannels ;
+     scDisplay.MaxADCValue := ADCMaxValue ;
+     scDisplay.MinADCValue := ADCMinValue ;
+     for ch := 0 to scDisplay.NumChannels-1 do begin
+         scDisplay.ChanOffsets[ch] := ADCChannelOffset[ch] ;
+         scDisplay.ChanUnits[ch] := ADCChannelUnits[ch] ;
+         scDisplay.ChanName[ch] := ADCChannelName[ch] ;
+         scDisplay.ChanScale[ch] := ADCChannelScale[ch] ;
+         scDisplay.ChanZero[ch] := ADCChannelZero[ch] ;
+         scDisplay.yMin[ch] := ADCChannelYMin[ch] ;
+         scDisplay.yMax[ch] := ADCChannelYMax[ch] ;
+         scDisplay.ChanVisible[ch] := True ;
+         end ;
+
+     // Enable/disable display calibration grid
+     scDisplay.DisplayGrid := mnShowGrid.Checked ;
+     scDisplay.MaxPoints := MaxDisplayScans ;
+     //scDisplay.xMin := 0 ;
+     //scDisplay.xMax := scDisplay.MaxPoints - 1 ;
+     scDisplay.NumPoints := 0 ;
+     { Create a set of zero level cursors }
+     scDisplay.ClearHorizontalCursors ;
+     for ch := 0 to scDisplay.NumChannels-1 do begin
+         Cursors.Base[ch] := scDisplay.AddHorizontalCursor(
+                             ch,
+                             clRed,
+                             True,
+                             'z' ) ;
+         scDisplay.HorizontalCursors[ch] := scDisplay.ChanZero[ch] ;
+         end ;
+
+     // Create and initialise vertical cursors (not in live mode)
+     scDisplay.ClearVerticalCursors ;
+     if not LiveMode then begin
+        Cursors.C0 := scDisplay.AddVerticalCursor(AllChannels,clGreen,'') ;
+        Cursors.C1 := scDisplay.AddVerticalCursor(AllChannels,clGreen,'') ;
+        scDisplay.VerticalCursors[Cursors.C0] := 0 ;
+        scDisplay.VerticalCursors[Cursors.C1] := scDisplay.MaxPoints div 2 ;
+        end ;
+
+     sbStartTime.Min := 0 ;
+     sbStartTime.Max := Max(NumSamplesInFile div scDisplay.NumChannels,1) ;
+
+     //edTDisplay.HiLimit := Max(NumSamplesInFile div NumChannels,1000)*dt ;
+
+     end ;
+
+
+procedure TMainFrm.bRecordClick(Sender: TObject);
+{ ---------------
+  Start recording
+  --------------- }
+var
+      ch : Integer ;
+begin
+
+      if ExtractFileDrive(ChartDirectory) <> ExtractFileDrive(SaveFileName) then begin
+        ShowMessage('Unable to record to ' + SaveFileName + '. Open a new data file in a folder on drive ' + ExtractFileDrive(ChartDirectory));
+        exit ;
+        end ;
+
+      SumProcTime := 0 ;
+      nProcTime := 0 ;
+
+      if FileHandle <= 0 then begin
+         ShowMessage( 'Data file required! (Select File/New Data File to open a new data file.)' ) ;
+         Exit ;
+         end ;
+
+      if not SESLabIO.LabInterfaceAvailable then begin
+         ShowMessage( ' No laboratory interface! Recording Disabled. ' ) ;
+         Exit
+         end ;
+
+      // Send new values to CED 1902
+      if CED1902.InUse then begin
+         CED1902.UpdateAmplifier ;
+         SESLabIO.ADCChannelGain[0] := CED1902.GainValue ;
+         end ;
+
+      CheckNewDataFileNeeded ;
+
+      // Enable/disable digital LP filtering
+      if DigitalFilter.Factor = 1.0 then DigitalFilter.InUse := False
+                                    else DigitalFilter.InUse := True ;
+      DigitalFilter.FirstSample := True ;
+
+      // Set time for next backup
+      if BackupEnabled then begin
+         NextBackupTime := TimeGetTime*0.001 + BackupInterval ;
+         end ;
+
+     // Copy channel settings to display
+
+     {Set channel information }
+     ADCMaxValue := 32767 ;  // Set A/D max value to 16 bit
+     ADCMinValue := -32768 ;
+     ADCScaleTo16Bit := (ADCMaxValue+1) div SESLabIO.ADCMaxValue ;
+
+     ADCSamplingInterval := SESLabIO.ADCSamplingInterval ;
+     ADCNumChannels := SESLabIO.ADCNumChannels ;
+
+     for ch := 0 to SESLabIO.ADCNumChannels-1 do begin
+
+         ADCChannelVoltageRange[ch] := SESLabIO.ADCChannelVoltageRange[ch] ;
+
+         ADCChannelUnits[ch] := SESLabIO.ADCChannelUnits[ch] ;
+         ADCChannelName[ch] := SESLabIO.ADCChannelName[ch] ;
+         ADCChannelGain[ch] := SESLabIO.ADCChannelGain[ch] ;
+         ADCChannelVoltsPerUnit[ch] := SESLabIO.ADCChannelVoltsPerUnit[ch] ;
+         ADCChannelScale[ch] := SESLabIO.ADCChannelUnitsPerBit[ch] ;
+         ADCChannelOffset[ch] := SESLabIO.ADCChannelOffset[ch] ;
+
+         scDisplay.ChanOffsets[ch] := ADCChannelOffset[ch] ;
+         scDisplay.ChanUnits[ch] := ADCChannelUnits[ch] ;
+         scDisplay.ChanName[ch] := ADCChannelName[ch] ;
+         scDisplay.ChanZero[ch] := ADCChannelZero[ch] ;
+         scDisplay.ChanVisible[ch] := True ;
+
+         end ;
+
+      // Start A/D sampling
+      StartADC ;
+
+      // NOTE ... Computed channels must be initialised
+      // AFTER the call to StartADC
+
+      // Initialise heart rate processor
+      if HR.InUse then InitialiseHeartRate ;
+      bResetHRMonitor.Enabled := HR.InUse ;
+
+      // Initialise root mean square EMG processor
+      if RMS.InUse then InitialiseRMS ;
+
+      LiveMode := True ;
+      SetControlsForLiveMode( LiveMode ) ;
+      RecordingInProgress := True ;
+
+      // Enable/disable controls for recording mode
+      SetControlsToRecordingMode( True ) ;
+
+      DisplayLive( True ) ;
+
+      StatusBar.SimpleText :=  format('Recording %.4g %s (%d Kb)',
+                               [(NumSamplesInFile div SESLabIO.ADCNumChannels)*
+                               SESLabIO.ADCSamplingInterval*TScale,
+                                 TUnits,
+                                 (NumSamplesInFile div 512)]) ;
+
+      FileSaveRequired := True ;
+      end;
+
+
+procedure TMainFrm.SetControlsToRecordingMode(
+          Enabled : Boolean
+          ) ;
+// ------------------------------
+// Set controls to recording mode
+// ------------------------------
+begin
+
+      bRecord.enabled := not Enabled ;
+      bStop.enabled := Enabled ;
+
+      if RecordingDisabled then begin
+         bRecord.enabled := False ;
+         bStop.enabled := False ;
+         end ;
+
+      sbStartTime.Enabled := not Enabled ;
+      edStartTime.Enabled := not Enabled ;
+      bStimOnOff.enabled := Enabled ;
+      bShowTable.enabled := not Enabled ;
+
+      // Enable stimulus on/off when recording
+      bStimOnOff.enabled := Enabled ;
+
+      rbLiveMode.Enabled := Enabled ;
+      rbLiveMode.Checked := Enabled ;
+      LiveMode := True ;
+      SetControlsForLiveMode( LiveMode ) ;
+
+      EnableMenus( not Enabled ) ;
+
+      end ;
+
+
+procedure TMainFrm.SetControlsForLiveMode(
+          Enabled : Boolean
+          ) ;
+// ------------------------------
+// Set controls to live display mode
+// ------------------------------
+begin
+
+      // Display window start time
+      sbStartTime.Enabled := not Enabled ;
+      edStartTime.Enabled := not Enabled ;
+
+      // Live/Replay mode radion buttons
+      rbReplayMode.Checked := not LiveMode ;
+      rbLiveMode.Checked := LiveMode ;
+
+      // t=0 cursor not visible during live recording
+      lbTZero.visible := not LiveMode ;
+
+      // Update display
+      InitialiseDisplay ;
+
+      end ;
+
+
+procedure TMainFrm.bStopClick(Sender: TObject);
+{ --------------
+  Stop recording
+  --------------}
+begin
+
+     SetControlsToRecordingMode( False ) ;
+
+     // Stop A/D sampling
+     SESLabIO.ADCStop ;
+
+     // Stop stimulator (if active)
+     if Stimulator.Running then StopStimulator ;
+
+     bStimOnOff.enabled := False ;
+     mnStimulator.Enabled := True ;
+
+     { Disable HR monitor button }
+     bResetHRMonitor.Enabled := False ;
+
+     // Save header then close and re-open file to preserve it in case of a system crash
+     NumSamplesInFile := (FileSeek( FileHandle, 0, 2 ) - NumBytesInHeader) div 2 ;
+     SaveHeader( FileHandle ) ;
+     FileClose( FileHandle ) ;
+     FileHandle := FileOpen( TempDataFileName, fmOpenReadWrite ) ;
+
+     // Save to data file
+     SaveToDataFile( SaveFileName ) ;
+
+     RecordingInProgress := False ;
+     LiveMode := False ;
+     SetControlsForLiveMode( LiveMode ) ;
+
+     InitialiseDisplay ;
+
+     // Place display at end of data recorded data
+     sbStartTime.Position := Max( (NumSamplesInFile div SESLabIO.ADCNumChannels)
+                                   - Round(edTDisplay.Value/SESLabIO.ADCSamplingInterval), 0) ;
+     DisplayFromFile ;
+
+     { Enable menus }
+     EnableMenus( True ) ;
+
+     StatusBar.SimpleText :=  format('Recording Stopped: %.4g %s (%d Kb)',
+                              [(NumSamplesInFile div SESLabIO.ADCNumChannels)*SESLabIO.ADCSamplingInterval*TScale,
+                               TUnits,
+                               NumSamplesInFile div 512]) ;
+
+     end;
+
+
+procedure TMainFrm.TimerTimer(Sender: TObject);
+// ---------------------
+//  Timed event scheduler
+// ---------------------
+var
+   Mins,Secs : single ;
+   nCount,i,iEnd : Integer ;
+   NumBytes : Integer ;
+   iTicks : Integer ;
+   iScan : Integer ;
+begin
+
+   // Exit if previous timer processes still in active
+   if TimerInProgress then Exit ;
+   TimerInProgress := True ;
+
+   iTicks := TimeGetTime ;
+
+   // Update stop clock
+   ElapsedTime := GetTickCount*0.001 - ElapsedTimeStart ;
+   if (ElapsedTime >= NextTimeDisplay) and StopWatchRunning then begin
+      Mins := Trunc( ElapsedTime /60.0 ) ;
+      Secs := ElapsedTime - Mins*60.0 ;
+      edTimer.Text := Format( '%2.0f:%.0f',[Mins,Secs] ) ;
+      NextTimeDisplay := ElapsedTime + 0.25 ;
+      end ;
+
+   // If recording ... update display/save to file
+   // --------------------------------------------
+
+   if RecordingInProgress then begin
+
+      { Copy A/D samples from A/D converter's internal buffers }
+      SESLabIO.ADCBufferRefresh ;
+
+      // Find latest A/D samples
+      nCount := 0 ;
+      While ((ADCRaw^[WriteBufs.EmptyPointer] <> EmptyFlag) or
+            (ADCRaw^[WriteBufs.EmptyPointer+1] <> -EmptyFlag)) and
+            (nCount < WriteBufs.NumSamplesPerBuf) do begin
+            WriteBufs.EmptyPointer := WriteBufs.EmptyPointer + SESLabIO.ADCNumChannels*2 ;
+            if WriteBufs.EmptyPointer >= WriteBufs.NumSamples then
+               WriteBufs.EmptyPointer := WriteBufs.EmptyPointer - WriteBufs.NumSamples ;
+            Inc(nCount) ;
+            end ;
+
+      WriteBufs.LatestScan := WriteBufs.EmptyPointer - SESLabIO.ADCNumChannels*4 ;
+      if WriteBufs.LatestScan < 0 then
+         WriteBufs.LatestScan := WriteBufs.LatestScan + WriteBufs.NumSamples ;
+
+      // Scale data to 16 bit range and transfer to ADC
+      iScan := WriteBufs.OldestScan ;
+      while iScan <> WriteBufs.LatestScan do begin
+          ADC^[iScan] := ADCRaw^[iScan]*ADCScaleTo16Bit ;
+          Inc(iScan) ;
+          if iScan >= WriteBufs.NumSamples then iScan := iScan - WriteBufs.NumSamples ;
+          end ;
+
+      // Compute heart rate channel
+      if HR.InUse then begin
+         iScan := WriteBufs.OldestScan ;
+         while iScan <> WriteBufs.LatestScan do begin
+               ComputeHeartRate( ADC^, iScan ) ;
+               iScan := iScan + SESLabIO.ADCNumChannels ;
+               if iScan >= WriteBufs.NumSamples then
+                  iScan := iScan - WriteBufs.NumSamples ;
+               end ;
+         end ;
+
+      // Compute RMS channel
+      if RMS.InUse then begin
+         iScan := WriteBufs.OldestScan ;
+         while iScan <> WriteBufs.LatestScan do begin
+               ComputeRMS( ADC^, iScan ) ;
+               iScan := iScan + SESLabIO.ADCNumChannels ;
+               if iScan >= WriteBufs.NumSamples then
+                  iScan := iScan - WriteBufs.NumSamples ;
+               end ;
+         end ;
+
+      // Update display if in live display mode
+      if LiveMode then DisplayLive( False )
+      else WriteBufs.OldestScan := WriteBufs.LatestScan ;
+
+      // If latest write block full .. write to file
+      WriteBufs.ActiveBuf := WriteBufs.OldestScan div WriteBufs.NumSamplesPerBuf ;
+      if WriteBufs.ActiveBuf <> WriteBufs.WriteBuf then begin
+         // Write block to file
+         NumBytes := FileSeek( FileHandle, 0, 2 ) ;
+         if FileWrite( FileHandle,
+                       ADC^[WriteBufs.BufStart[WriteBufs.WriteBuf]],
+                       WriteBufs.NumBytesPerBuf )
+            <> WriteBufs.NumBytesPerBuf then
+            StatusBar.SimpleText := 'Error writing to ' + TempDataFileName ;
+
+         // Fill buffer with empty flags
+         i := WriteBufs.BufStart[WriteBufs.WriteBuf] ;
+         iEnd := WriteBufs.BufEnd[WriteBufs.WriteBuf] ;
+         while i <= iEnd do begin
+               ADCRaw^[i] := EmptyFlag ;
+               Inc(i) ;
+               ADCRaw^[i] := -EmptyFlag ;
+               Inc(i) ;
+               end ;
+         WriteBufs.WriteBuf := WriteBufs.WriteBuf + 1 ;
+         if WriteBufs.WriteBuf >= WriteBufs.NumBufs then WriteBufs.WriteBuf := 0 ;
+
+         iTicks := TimeGetTime - iTicks ;
+         SumProcTime :=  SumProcTime + iTicks ;
+         Inc(nProcTime) ;
+
+         NumSamplesInFile := (NumBytes + WriteBufs.NumBytesPerBuf - NumBytesInHeader)
+                              div 2 ;
+         StatusBar.SimpleText :=  format('Recording %.4g %s (%d Kb)',
+                                  [(NumSamplesInFile div SESLabIO.ADCNumChannels)*SESLabIO.ADCSamplingInterval*TScale,
+                                   TUnits,
+                                   NumSamplesInFile div 512]) ;
+         end ;
+
+      // Back up to BAK file
+      if BackupEnabled then begin
+         iTicks := TimeGetTime ;
+         if iTicks >= Round(NextBackupTime*1000.0) then begin
+            Backup ;
+            NextBackupTime := NextBackupTime + BackupInterval ;
+            end ;
+         end ;
+
+        if (SESLabIO.StimulusStartFlag = True) and
+           (not bRecord.enabled) then begin
+           SESLabIO.StartStimulus ;
+           end ;
+
+      // Update D/A output if stimulus enabled and fast waveform update not supported.
+      if Stimulator.Running and (not DACWaveformSupported) then begin
+         DACV[StimDACChan] := (DAC^[DACPointer]/SESLabIO.DACMaxValue)*SESLabIO.DACVoltageRange[0] ;
+         SESLabIO.WriteDACs( DACV, 2 ) ;
+         Inc(DACPointer) ;
+         if DACPointer >= NumDACPoints then DACPointer := 0 ;
+         end ;
+      end ;
+
+    // Signal timer processes complete
+    TimerInProgress := False ;
+
+    end;
+
+
+procedure TMainFrm.Backup ;
+// ---------------------------
+// Copy data file to .BAK file
+// ---------------------------
+const
+     NumBytesPerBuf = 8192 ;
+var
+     Buf : Array[0..NumBytesPerBuf-1] of Byte ; // I/O buffer
+     NumBytesCHT : Integer ;                    // Current CHT file size
+     NumBytesBAK : Integer ;                    // Current BAK file size
+     BAKFileHandle : Integer ;                  // Backup file handle
+     NumBytesRead : Integer ;                   // No. bytes read from CHT file
+     Done : Boolean ;
+begin
+
+     if BAKFileName = '' then Exit ;
+
+     StatusBar.SimpleText := 'Backing up to ' + BAKFileName ;
+
+     // Go to end of data file
+     NumBytesCHT := FileSeek( FileHandle, 0, 2 ) ;
+     // Open backup file
+     BAKFileHandle := FileOpen( BAKFileName, fmOpenReadWrite ) ;
+     // Go to end of backup file
+     NumBytesBAK := FileSeek( BAKFileHandle, 0, 2 ) ;
+
+     // Copy from CHT to BAK file
+     if NumBytesBAK < NumBytesCHT then Done := False
+                                  else Done := True ;
+     // Go to start data to be copied to BAK file
+     FileSeek( FileHandle, NumBytesBAK, 0 ) ;
+     While not Done do begin
+          NumBytesRead := FileRead( FileHandle, Buf, NumBytesPerBuf ) ;
+          if NumBytesRead > 0 then begin
+             FileWrite( BAKFileHandle, Buf, NumBytesRead ) ;
+             end
+          else Done := True ;
+          end ;
+
+     // Save file header data
+     SaveHeader( BAKFileHandle ) ;
+
+     // Close BAK file
+     FileClose( BAKFileHandle ) ;
+
+     end ;
+
+
+procedure TMainFrm.SaveToDataFile( ToFileName : String ) ;
+// --------------------------------
+// Save from temp file to data file
+// --------------------------------
+const
+     NumBytesPerBuf = 8192 ;
+var
+     Buf : Array[0..NumBytesPerBuf-1] of Byte ;
+     //NumBytes : Integer ;
+     ToFileHandle : Integer ;
+     NumBytesRead : Integer ;            
+begin
+
+     if ToFileName = '' then Exit ;
+
+     // Prevent copying to currently open data file
+     if ToFileName = TempDataFileName then begin
+        StatusBar.SimpleText :=
+        'Save As: ERROR! File name must be different from open data file!' ;
+        Exit ;
+        end ;
+
+     StatusBar.SimpleText := 'Saving to ' + ToFileName ;
+
+     // Ensure file header is up to date
+     SaveHeader( FileHandle ) ;
+
+     // Create file to be saved to
+     if FileExists(ToFileName) then DeleteFile(PChar(ToFileName)) ;
+     ToFileHandle := FileCreate( ToFileName ) ;
+     if ToFileHandle < 0 then begin
+        StatusBar.SimpleText :=
+        'Save As: ERROR! Unable to create ' + ToFileName ;
+        Exit ;
+        end ;
+
+     //FileSeek( FileHandle, 0, 2 ) ;
+
+     // Copy data file
+     FileSeek( FileHandle, 0, 0 ) ;
+     FileSeek( ToFileHandle, 0, 0 ) ;
+     repeat
+          NumBytesRead := FileRead( FileHandle, Buf, NumBytesPerBuf ) ;
+          if NumBytesRead > 0 then FileWrite( ToFileHandle, Buf, NumBytesRead ) ;
+          until NumBytesRead <= 0 ;
+
+     FileClose( ToFileHandle ) ;
+
+     SaveDirectory := GetDirectory( SaveFileName ) ;
+     FileSaveRequired := False ;
+     Caption := 'File: ' + SaveFileName ;
+
+     AddToRecentFilesList( SaveFileName ) ;
+
+     StatusBar.SimpleText := 'Saved to ' + ToFileName ;
+
+     end ;
+
+
+procedure TMainFrm.SaveToASCIIDataFile( ToFileName : String ) ;
+// --------------------------------------
+// Save from temp file to ASCII data file
+// --------------------------------------
+var
+     Buf : PSmallIntArray ;
+     i,j,ch,nTPoints : Integer ;
+     OutFile : TextFile ;
+     s : string ;
+     FilePointer : Cardinal ;
+     NumSamplesRead : Integer ;
+     Y : Single ;
+begin
+
+     if ToFileName = '' then Exit ;
+
+     StatusBar.SimpleText := 'Saving to ' + ToFileName ;
+
+     // Ensure file header is up to date
+     SaveHeader( FileHandle ) ;
+
+     // Create file to be saved to
+     if FileExists(ToFileName) then DeleteFile(PChar(ToFileName)) ;
+
+     AssignFile( OutFile, ToFileName ) ;
+     ReWrite( OutFile ) ;
+
+     // Move file pointer to start of data
+     FilePointer := NumBytesInHeader ;
+     FileSeek( FileHandle, FilePointer, 0 ) ;
+     GetMem( Buf, NumSamplesInFile*2 ) ;
+     NumSamplesRead := FileRead(FileHandle,Buf^,NumSamplesInFile*2) ;
+     if NumSamplesRead <= 0 then ShowMessage('No data');
+
+     // Write data to file
+     nTPoints := NumSamplesInFile div Max(scDisplay.NumChannels,1) ;
+     for i := 0 to nTPoints-1 do begin
+         s := format('%.5g',[i*ADCSamplingInterval]) ;
+         for ch := 0 to scDisplay.NumChannels-1 do begin
+             j := scDisplay.ChanOffsets[ch] + i*scDisplay.NumChannels ;
+             Y := scDisplay.ChanScale[ch]*(Buf^[j] - scDisplay.ChanZero[ch]) ;
+             s := s + #9 + format('%.5g',[Y]) ;
+             end ;
+         WriteLn(OutFile, s )
+         end ;
+     CloseFile( OutFile ) ;
+     FreeMem(Buf) ;
+     end ;
+
+
+procedure TMainFrm.LoadFromDataFile( FromFileName : String ) ;
+// -----------------------------------------------
+// Load from .CHT data file into .TMP working file
+// -----------------------------------------------
+const
+     NumBytesPerBuf = 8192 ;
+var
+     Buf : Array[0..NumBytesPerBuf-1] of Byte ; // I/O buffer
+     //NumBytes : Integer ;                    // Current BAK file size
+     FromFileHandle : Integer ;                  // Backup file handle
+     NumBytesRead : Integer ;                   // No. bytes read from CHT file
+begin
+
+     if FromFileName = '' then Exit ;
+
+     // Prevent copying to currently open data file
+     if FromFileName = TempDataFileName then begin
+        StatusBar.SimpleText :=
+        'Save As: ERROR! File name must be different from open data file!' ;
+        Exit ;
+        end ;
+
+     StatusBar.SimpleText := 'Loading from ' + FromFileName ;
+
+     // Delete
+     if FileHandle >= 0 then FileClose( FileHandle ) ;
+     DeleteFile(PChar(TempDataFileName)) ;
+     FileHandle := FileCreate( TempDataFileName ) ;
+
+     // Opem file to be loaded
+     FromFileHandle := FileOpen( FromFileName, fmOpenRead ) ;
+     if FromFileHandle < 0 then begin
+        StatusBar.SimpleText :=
+        'Open: ERROR! Unable to open ' + FromFileName ;
+        Exit ;
+        end ;
+
+//     NumBytes := FileSeek( FromFileHandle, 0, 2 ) ;
+
+     // Copy data file
+     FileSeek( FileHandle, 0, 0 ) ;
+     FileSeek( FromFileHandle, 0, 0 ) ;
+     repeat
+          NumBytesRead := FileRead( FromFileHandle, Buf, NumBytesPerBuf ) ;
+          if NumBytesRead > 0 then FileWrite( FileHandle, Buf, NumBytesRead ) ;
+          until NumBytesRead <= 0 ;
+
+     FileClose( FromFileHandle ) ;
+
+     SaveFileName := FromFileName ;
+
+     // Read file header
+     GetHeader( FileHandle ) ;
+
+     InitialiseDisplay ;
+
+     AddToRecentFilesList( SaveFileName ) ;
+     Caption := 'File: ' + SaveFileName ;
+
+     end ;
+
+
+procedure TMainFrm.StartADC ;
+{ ---------------------
+  Start A/D conversions
+  ---------------------}
+const
+    IdealWriteBufDuration = 2.0 ;
+var
+
+   ExtTrigger : Boolean ;
+   i : Integer ;
+begin
+
+     // Ensure timer interval is long enough to capture some samples
+     Timer.Interval := Max(Round(SESLabIO.ADCNumChannels*SESLabIO.ADCSamplingInterval*4000.0),55) ;
+
+     // Set number of scans in write block
+     WriteBufs.NumScansPerBuf := MinScansPerWriteBuf ;
+     WriteBufs.NumSamplesPerBuf := WriteBufs.NumScansPerBuf*SESLabIO.ADCNumChannels ;
+     while ((WriteBufs.NumScansPerBuf*SESLabIO.ADCSamplingInterval) < IdealWriteBufDuration) and
+           (WriteBufs.NumSamplesPerBuf <= (ADCBufferSize div 2)) do begin
+           WriteBufs.NumScansPerBuf := WriteBufs.NumScansPerBuf + MinScansPerWriteBuf ;
+           WriteBufs.NumSamplesPerBuf := WriteBufs.NumScansPerBuf*SESLabIO.ADCNumChannels ;
+           WriteBufs.NumBytesPerBuf := WriteBufs.NumSamplesPerBuf*2 ;
+           end ;
+     WriteBufs.NumBytesPerBuf := WriteBufs.NumSamplesPerBuf*2 ;
+
+     // Set up write Buf pointers
+     WriteBufs.NumBufs := ADCBufferSize div WriteBufs.NumSamplesPerBuf ;
+     for i := 0 to WriteBufs.NumBufs-1 do begin
+         WriteBufs.BufStart[i] := i*WriteBufs.NumSamplesPerBuf ;
+         WriteBufs.BufEnd[i] := WriteBufs.BufStart[i] + WriteBufs.NumSamplesPerBuf - 1 ;
+         end ;
+
+     // Total number of scans in circular buffer
+     WriteBufs.NumScans := WriteBufs.NumBufs*WriteBufs.NumScansPerBuf ;
+     // Total number of A/D samples
+     WriteBufs.NumSamples := WriteBufs.NumScans*SESLabIO.ADCNumChannels ;
+     // Initialse sub-buffer index
+     WriteBufs.WriteBuf := 0 ;
+     WriteBufs.EmptyPointer := SESLabIO.ADCNumChannels*4 ;
+     WriteBufs.LatestScan := 0 ;
+     WriteBufs.OldestScan := 0 ;
+
+     ExtTrigger := False ;
+
+     { Start A/D converter sampling }
+     if SESLabIO.ADCActive then SESLabIO.ADCStop ;
+
+     // No. of A/D channels per scan
+     SESLabIO.ADCNumSamples := WriteBufs.NumScans ;
+     ADCScaleTo16Bit := (ADCMaxValue+1) div SESLabIO.ADCMaxValue ;
+
+     // Set individual channel voltage ranges
+     // Ensure Upper/lower limits of A/D and D/A ranges
+     // are valid for interface card in use
+     MinDACValue := SESLabIO.DACMinValue ;
+     MaxDACValue := SESLabIO.DACMaxValue ;
+
+     // Set A/D sweep triggering
+     SESLabIO.ADCTriggerMode := tmFreeRun ;
+
+     SESLabIO.ADCCircularBuffer := True ;
+     SESLabIO.ADCStart ;
+
+     end ;
+
+
+
+procedure TMainFrm.DisplayLive(
+          Initialise : Boolean         // TRUE = Clear/initialise display
+          ) ;
+// -----------------------------------------------
+// Display digitised signals in acquisition buffer
+// -----------------------------------------------
+var
+
+    NumScans : Integer ;           // No. of multi-channel scans in display window
+    NumSamplesPerBlock : Integer ; // No. of A/D samples per compression block
+    Done : Boolean ;               // Loop done flag
+    ch,y : Integer ;             // Counters/index variables
+begin
+
+     // Erase display and initialise live display counters
+     // --------------------------------------------------
+
+     if Initialise or
+        (WriteBufs.NumBlocksDisplayed >= WriteBufs.MaxBlocksDisplayed) then begin
+
+       // No. of multi-channel scans to be displayed
+       NumScans := Max( Round(edTDisplay.Value/SESLabIO.ADCSamplingInterval),1 ) ;
+
+       // Size of display compression block
+       WriteBufs.NumScansPerBlock := Max( NumScans div MaxDisplayScans,1) ;
+       NumSamplesPerBlock := WriteBufs.NumScansPerBlock*SESLabIO.ADCNumChannels ;
+
+       // No. of displayed points per block
+       WriteBufs.NumPointsPerBlock := Min(WriteBufs.NumScansPerBlock,2) ;
+
+       // Max. number of points in display
+       WriteBufs.MaxBlocksDisplayed := (NumScans div WriteBufs.NumScansPerBlock) ;
+       scDisplay.MaxPoints := WriteBufs.MaxBlocksDisplayed*WriteBufs.NumPointsPerBlock ;
+
+       scDisplay.TScale := (SESLabIO.ADCSamplingInterval*
+                            WriteBufs.NumScansPerBlock*TScale)/WriteBufs.NumPointsPerBlock ;
+       scDisplay.TUnits := TUnits ;
+
+       scDisplay.xMin := 0 ;
+       scDisplay.xMax := scDisplay.MaxPoints-1 ;
+       // Enable/disable display calibration grid
+       scDisplay.DisplayGrid := mnShowGrid.Checked ;
+       scDisplay.SetDataBuf( @DisplayBuf ) ;
+
+       scDisplay.XOffset := (NumSamplesInFile*WriteBufs.NumPointsPerBlock)
+                            div (WriteBufs.NumScansPerBlock*SESLabIO.ADCNumChannels) ;
+
+       scDisplay.NumPoints := 0 ;
+       //scDisplay.Invalidate ;
+
+       // Clear markers on display
+       scDisplay.ClearMarkers ;
+
+       // Initialise counters
+       WriteBufs.BlockCount := WriteBufs.NumScansPerBlock ;
+       WriteBufs.DispPointer := 0 ;
+       WriteBufs.NumBlocksDisplayed := 0 ;
+
+       end ;
+
+     // Read and display samples from A/D sample buffer
+     // -----------------------------------------------
+
+     if WriteBufs.OldestScan = WriteBufs.LatestScan then Done := True
+                                                    else Done := False ;
+     While not Done do begin
+
+        // Initialise block
+        if WriteBufs.BlockCount >= WriteBufs.NumScansPerBlock then begin
+           for ch := 0 to scDisplay.NumChannels-1 do begin
+               WriteBufs.yMin[ch] := ADCMaxValue ;
+               WriteBufs.yMax[ch] := ADCMinValue ;
+               end ;
+           WriteBufs.BlockCount := 0 ;
+           end ;
+
+        // Determine min. / max. value & order of samples within compression block
+        for ch := 0 to SESLabIO.ADCNumChannels-1 do begin
+
+            y := ADC^[WriteBufs.OldestScan+ch] ;
+
+            if DigitalFilter.InUse  then begin
+               y := Round( (DigitalFilter.Factor*y) +
+                           (1.0 - DigitalFilter.Factor)*DigitalFilter.y[ch] ) ;
+               DigitalFilter.y[ch] := y ;
+               end ;
+
+            if y < WriteBufs.yMin[ch] then begin
+               WriteBufs.yMin[ch] := y ;
+               WriteBufs.yMinAt[ch] := WriteBufs.BlockCount ;
+               end ;
+            if y > WriteBufs.yMax[ch] then begin
+               WriteBufs.yMax[ch] := y ;
+               WriteBufs.yMaxAt[ch] := WriteBufs.BlockCount ;
+               end ;
+            end ;
+        Inc(WriteBufs.BlockCount) ;
+
+        // When block complete ... write min./max. to display buffer
+        if WriteBufs.BlockCount >= WriteBufs.NumScansPerBlock then begin
+
+           // First point
+           for ch := 0 to SESLabIO.ADCNumChannels-1 do begin
+               if WriteBufs.yMaxAt[ch] <= WriteBufs.yMinAt[ch] then
+                  DisplayBuf[WriteBufs.DispPointer] := WriteBufs.yMax[ch]
+               else DisplayBuf[WriteBufs.DispPointer] := WriteBufs.yMin[ch] ;
+               WriteBufs.DispPointer := WriteBufs.DispPointer + 1 ;
+               end ;
+
+           // Second point
+           if WriteBufs.BlockCount > 1 then begin
+              for ch := 0 to SESLabIO.ADCNumChannels-1 do begin
+                  if WriteBufs.yMaxAt[ch] >= WriteBufs.yMinAt[ch] then
+                     DisplayBuf[WriteBufs.DispPointer] := WriteBufs.yMax[ch]
+                  else DisplayBuf[WriteBufs.DispPointer] := WriteBufs.yMin[ch] ;
+                  WriteBufs.DispPointer := WriteBufs.DispPointer + 1 ;
+                  end ;
+              end ;
+
+           Inc(WriteBufs.NumBlocksDisplayed) ;
+           end ;
+
+        // Increment pointer to next available scan
+        WriteBufs.OldestScan := WriteBufs.OldestScan + SESLabIO.ADCNumChannels ;
+        if WriteBufs.OldestScan >= WriteBufs.NumSamples then
+           WriteBufs.OldestScan := WriteBufs.OldestScan - WriteBufs.NumSamples ;
+        if (WriteBufs.OldestScan = WriteBufs.LatestScan) or
+           (WriteBufs.NumBlocksDisplayed >= scDisplay.MaxPoints) then Done := True ;
+
+        end ;
+
+     // Display latest points added to display buffer
+     scDisplay.DisplayNewPoints( WriteBufs.NumBlocksDisplayed*WriteBufs.NumPointsPerBlock );
+     //scDisplay.Invalidate ;
+
+     // Update cursor readout
+     meCursor.Clear ;
+     for ch := 0 to scDisplay.NumChannels-1 do begin
+         CursorValue[ch] := scDisplay.ChanScale[ch]*
+         ( DisplayBuf[((WriteBufs.NumBlocksDisplayed-2)*WriteBufs.NumPointsPerBlock*scDisplay.NumChannels)+scDisplay.ChanOffsets[ch]]
+         - scDisplay.ChanZero[ch] ) ;
+         meCursor.Lines.Add(format( '%s= %.4g %s',
+                                    [scDisplay.ChanName[ch],
+                                     CursorValue[ch] ,
+                                     scDisplay.ChanUnits[ch]] ) );
+         end ;
+
+     //meCursor.Lines.Add(format('%d',[WriteBufs.EmptyPointer])) ;
+
+     end ;
+
+
+procedure TMainFrm.DisplayFromFile ;
+// ------------------------------------------
+// Display digitised signals stored on file
+// ------------------------------------------
+var
+
+    NumScans : Integer ;
+    NumScansPerBlock : Integer ;
+    NumSamplesPerBlock : Integer ;
+    NumPointsPerBlock : Integer ;
+    NumSamplesPerBuf : Integer ;
+    NumSamplesRead : Integer ;
+    StartScan : Integer ;
+    BlockCount : Integer ;
+    NumPoints : Integer ;
+    FilePointer : Integer ;
+    iDisp : Integer ;
+    Done : Boolean ;
+    yMin : Array[0..ChannelLimit] of Integer ;
+    yMax : Array[0..ChannelLimit] of Integer ;
+    yMinAt : Array[0..ChannelLimit] of Integer ;
+    yMaxAt : Array[0..ChannelLimit] of Integer ;
+    Buf : Array[0..(256*MaxChannels-1)] of SmallInt ;
+    i,ch,y : Integer ;
+    MarkerTime : Single ;
+    MarkerAt : Integer ;
+    TimeScale : Single ;
+begin
+
+
+     scDisplay.ClearMarkers ;
+     scDisplay.NumPoints := 0 ;
+     scDisplay.Invalidate ;
+
+     // Quit if no file open
+     if FileHandle < 0 then Exit ;
+
+     // No. of multi-channel scans to be displayed
+     NumScans := Max( Round(edTDisplay.Value/ADCSamplingInterval),1 ) ;
+
+     // Size of display compression block
+     NumScansPerBlock := Max( NumScans div MaxDisplayScans,1) ;
+     NumSamplesPerBlock := NumScansPerBlock*scDisplay.NumChannels ;
+     // No. of display points per compression block
+     NumPointsPerBlock := Min(NumScansPerBlock,2) ;
+     // Max. number of points in display
+     scDisplay.MaxPoints := (NumScans div NumScansPerBlock)*NumPointsPerBlock ;
+
+     // No. of samples in file I/O buffer
+     NumSamplesPerBuf := scDisplay.NumChannels*256 ;
+
+     // Find starting scan number
+     StartScan := Round(edStartTime.Value/ADCSamplingInterval) ;
+     scDisplay.XOffset := (StartScan*NumPointsPerBlock) div NumScansPerBlock ;
+
+     scDisplay.TScale := (ADCSamplingInterval*NumScansPerBlock*TScale)/NumPointsPerBlock ;
+     scDisplay.TUnits := TUnits ;
+
+      // Enable/disable digital LP filtering
+      if DigitalFilter.Factor = 1.0 then DigitalFilter.InUse := False
+                                    else DigitalFilter.InUse := True ;
+      DigitalFilter.FirstSample := True ;
+
+     // Move file pointer to start of data
+     FilePointer := NumBytesInHeader + StartScan*scDisplay.NumChannels*2 ;
+     FileSeek( FileHandle, FilePointer, 0 ) ;
+
+     // Initialise counters
+     BlockCount := NumScansPerBlock ;
+     NumSamplesRead := NumSamplesPerBuf ;
+     i := NumSamplesRead ;
+     iDisp := 0 ;
+     NumPoints := 0 ;
+     Done := False ;
+
+     // Initialise heart rate computation (if in use)
+     if HR.InUse then InitialiseHeartRate ;
+
+     // Read samples from file
+     While not Done do begin
+
+        // Initialise block
+        if BlockCount >= NumScansPerBlock then begin
+           for ch := 0 to scDisplay.NumChannels-1 do begin
+               yMin[ch] := ADCMaxValue ;
+               yMax[ch] := ADCMinValue ;
+               end ;
+           BlockCount := 0 ;
+           end ;
+
+        // Load new buffer
+        if i >= NumSamplesRead then begin
+           NumSamplesRead := FileRead(FileHandle,Buf,NumSamplesPerBuf*2) div 2 ;
+           i := 0 ;
+           if NumSamplesRead <= 0 then Break ;
+           end ;
+
+        // Determine min. / max. value & order of samples within compression block
+        for ch := 0 to scDisplay.NumChannels-1 do begin
+
+            // Get A/D sample
+            y := Buf[i] ;
+
+            // Digital low pass filter
+            if DigitalFilter.InUse then begin
+               if DigitalFilter.FirstSample then begin
+                  DigitalFilter.y[ch] := y ;
+                  if ch = (scDisplay.NumChannels-1) then DigitalFilter.FirstSample := False ;
+                  end ;
+               y := Trunc( (DigitalFilter.Factor*y) +
+                           (1.0 - DigitalFilter.Factor)*DigitalFilter.y[ch] ) ;
+               DigitalFilter.y[ch] := y ;
+               end ;
+
+            if y < yMin[ch] then begin
+               yMin[ch] := y ;
+               yMinAt[ch] := BlockCount ;
+               end ;
+            if y > yMax[ch] then begin
+               yMax[ch] := y ;
+               yMaxAt[ch] := BlockCount ;
+               end ;
+            Inc(i) ;
+            end ;
+        Inc(BlockCount) ;
+
+        // When block complete ... write min./max. to display buffer
+        if BlockCount >= NumScansPerBlock then begin
+
+           // First point
+           for ch := 0 to scDisplay.NumChannels-1 do begin
+               if yMaxAt[ch] <= yMinAt[ch] then DisplayBuf[iDisp] := yMax[ch]
+                                           else DisplayBuf[iDisp] := yMin[ch] ;
+               Inc(iDisp) ;
+               end ;
+           Inc(NumPoints) ;
+
+           // Second point
+           if BlockCount > 1 then begin
+              for ch := 0 to scDisplay.NumChannels-1 do begin
+                  if yMaxAt[ch] >= yMinAt[ch] then DisplayBuf[iDisp] := yMax[ch]
+                                              else DisplayBuf[iDisp] := yMin[ch] ;
+                  Inc(iDisp) ;
+                  end ;
+              Inc(NumPoints) ;
+              end ;
+
+           end ;
+
+        if NumPoints >= scDisplay.MaxPoints then Done := True ;
+
+        end ;
+
+     scDisplay.NumPoints := NumPoints ;
+
+     scDisplay.xMin := 0 ;
+     scDisplay.xMax := scDisplay.MaxPoints-1 ;
+     // Enable/disable display calibration grid
+     scDisplay.DisplayGrid := mnShowGrid.Checked ;
+     scDisplay.SetDataBuf( @DisplayBuf ) ;
+
+     scDisplay.VerticalCursors[Cursors.C0] := ((TZeroScan*NumPointsPerBlock) div NumScansPerBlock)
+                                              - scDisplay.xOffset ;
+
+     scDisplay.VerticalCursors[Cursors.C1] := scDisplay.MaxPoints div 2 ;
+
+     // Add markers (if any appear on display
+     scDisplay.ClearMarkers ;
+     TimeScale := scDisplay.TScale/TScale ;
+     for i := 0 to MarkerList.Count-1 do begin
+         MarkerTime := Single(MarkerList.Objects[i]) ;
+         MarkerAt := Round(MarkerTime/TimeScale) - scDisplay.XOffset ;
+         if (MarkerAt >= 0) and (MarkerAt < scDisplay.MaxPoints) then
+            scDisplay.AddMarker( MarkerAt, MarkerList.Strings[i] );
+         end ;
+
+     scDisplay.Invalidate ;
+
+     end ;
+
+
+procedure TMainFrm.StartStimulator ;
+// --------------------
+//  Turn stimulator On
+// --------------------
+var
+   i,j,j0,jEnd,nPulseWidth,nPulseInterval : LongInt ;
+   DACVOn,DACVOff : Integer ;  // D/A output integer value
+begin
+
+      Stimulator.RepeatPeriodmsec := Round( Stimulator.GroupInterval*1000. ) ;
+      if ( Stimulator.PulsesPerGroup > 1 ) then
+         edStimStatus.text := format('%d x %f Hz per %f s',
+                              [Stimulator.PulsesPerGroup,
+                               Stimulator.PulseFrequency,
+                               Stimulator.GroupInterval] )
+      else
+         edStimStatus.text := format(' 1 per %f s',
+                              [Stimulator.GroupInterval]) ;
+
+      { Convert from seconds to D/A samples }
+      nPulseWidth := Max(Trunc(Stimulator.PulseWidth/DACUpdateInterval),1) ;
+      if Stimulator.PulseFrequency <= 0.0 then Stimulator.PulseFrequency := 1.0 ;
+      nPulseInterval := Max(Trunc(1./(DACUpdateInterval*Stimulator.PulseFrequency)),1);
+
+      { Create stimulus pulse(s) }
+      DACVOn := Round((Stimulator.PulseVOn*SESLabIO.DACMaxValue)/SESLabIO.DACVoltageRange[0] ) ;
+      DACVOff := Round((Stimulator.PulseVOff*SESLabIO.DACMaxValue)/SESLabIO.DACVoltageRange[0] ) ;
+
+      for i := 0 to High(DAC^) do DAC^[i] := DACVOff ;
+      jEnd := High(DAC^)-1 ;
+      j0 := 1 ;
+      for i := 1 to Stimulator.PulsesPerGroup do begin
+          for j := j0 to j0 + nPulseWidth - 1 do
+              if j < jEnd then DAC^[j] := DACVOn ;
+          j0 := j0 + nPulseInterval ;
+          end ;
+
+      // Setup DAC waveform output
+      if DACWaveformSupported then begin
+         // D/A waveform output supported by interface
+         SESLabIO.DACNumChannels := 1 ;
+         SESLabIO.DACNumSamples := j0 ;
+         SESLabIO.DACUpdateInterval := DACUpdateInterval ;
+         SESLabIO.TimerPeriod := Stimulator.GroupInterval ;
+         if not SESLabIO.TimerActive then SESLabIO.StartTimer ;
+         end
+      else begin
+         // Initialise DAC update from Timer
+         NumDACPoints := Round(Stimulator.GroupInterval/DACUpdateInterval) ;
+         DACPointer := 0 ;
+         end ;
+      Stimulator.Running := True ;
+      end ;
+
+
+procedure TMainFrm.StopStimulator ;
+// --------------------
+//  Turn stimulator Off
+// --------------------
+begin
+     // Stop stimulus pulse interval timer
+     if SESLABIO.TimerActive then SESLABIO.StopTimer ;
+
+     // Stop D/A output
+     if SESLABIO.DacActive then SESLABIO.DACStop ;
+     DACV[StimDACChan] := Stimulator.PulseVOff ;
+     SESLABIO.WriteDACS( DACV, 2 ) ;
+
+     Stimulator.Running := False ;
+     edStimStatus.text := 'OFF' ;
+     mnStimulator.Enabled := True ;
+     end ;
+
+
+procedure TMainFrm.SaveHeader(
+          FHandle : Integer     // File handle of data file
+          ) ;
+{ ------------------------
+  Save data to file header
+  ------------------------}
+var
+   Header : array[1..HeaderSize] of ANSIchar ;
+   i,ch : LongInt ;
+begin
+
+     { Initialise empty header buffer with zero bytes }
+     for i := 1 to sizeof(Header) do Header[i] := #0 ;
+
+     AppendFloat( Header, 'VER=',7.0);
+
+     AppendInt( Header, 'NC=', ADCNumChannels ) ;
+     SetZoomPopupMenu ;
+
+     // Upper/lower limits of A/D sample integer value range
+     AppendInt( Header, 'ADCMAX=', ADCMaxValue ) ;
+     AppendInt( Header, 'ADCMin=', ADCMinValue ) ;
+     // Upper/lower limits of D/A integer value range
+     AppendInt( Header, 'DACMAX=', MaxDACValue ) ;
+     AppendInt( Header, 'DACMIN=', MinDACValue ) ;
+
+     //AppendFloat( Header, 'AD=', SESLabIO.ADCVoltageRange ) ;
+
+     AppendInt( Header, 'NS=', NumSamplesInFile ) ;
+
+     AppendFloat( Header, 'DT=',ADCSamplingInterval );
+     AppendFloat( Header, 'TD=',edTdisplay.Value ) ;
+
+     // Digital LP filter factor
+     AppendFloat( Header, 'DF=',DigitalFilter.Factor ) ;
+
+     AppendString( Header, 'ID=', IdentLine ) ;
+     AppendFLoat( Header, 'TZ=', TimeZero );
+
+     for ch := 0 to ADCNumChannels-1 do begin
+         AppendFloat( Header, format('AD%d=',[ch]), ADCChannelVoltageRange[ch] ) ;
+         AppendString( Header, format('YU%d=',[ch]), ADCChannelUnits[ch] ) ;
+         AppendString( Header, format('YN%d=',[ch]), ADCChannelName[ch] ) ;
+         AppendFloat( Header, format('YS%d=',[ch]), ADCChannelScale[ch] ) ;
+         AppendFloat( Header, format('YC%d=',[ch]), ADCChannelVoltsPerUnit[ch] ) ;
+         AppendFloat( Header, format('YAG%d=',[ch]), ADCChannelGain[ch]) ;
+         AppendInt( Header, format('YZ%d=',[ch]), ADCChannelZero[ch] ) ;
+         AppendFloat( Header, format('YMAX%d=',[ch]), ADCChannelYMax[ch] ) ;
+         AppendFloat( Header, format('YMIN%d=',[ch]), ADCChannelYMin[ch] ) ;
+
+         // Offset for A/D sample within multi-channel scan
+         AppendInt( Header, format('YO%d=',[ch]), ADCChannelOffset[ch] ) ;
+         AppendFloat( Header, format('YB%d=',[ch]), ADCCalibrationBar[ch] ) ;
+         //AppendFloat( Header, format('YV%d=',[ch]), ADCCalibrationValue[ch] ) ;
+         end ;
+
+     { Save RMS & HR processor setting }
+     AppendInt( Header, 'FCRMS=', RMS.FromChannel ) ;
+     AppendInt( Header, 'TCRMS=', RMS.toChannel ) ;
+     AppendInt( Header, 'AVRMS=', RMS.NumAverage ) ;
+     AppendLogical( Header, 'IURMS=', RMS.InUse ) ;
+     AppendInt( Header, 'FCHR=', HR.FromChannel ) ;
+     AppendInt( Header, 'TCHR=', HR.toChannel ) ;
+     AppendFloat( Header, 'THHR=', HR.PercentageThreshold ) ;
+     AppendFloat( Header, 'MAXHR=', HR.MaxScale ) ;
+     AppendLogical( Header, 'IUHR=', HR.InUse ) ;
+     AppendLogical( Header, 'DSPHR=', HR.DisplayHR ) ;
+
+     // Save markers to header
+     AppendInt( Header, 'MKN=', MarkerList.Count ) ;
+     for i := 0 to MarkerList.Count-1 do begin
+         AppendFloat( Header, format('MKTIM%d=',[i]), Single(MarkerList.Objects[i])) ;
+         AppendString( Header, format('MKTXT%d=',[i]), MarkerList.Strings[i] ) ;
+         end ;
+
+     FileSeek( FHandle, 0, 0 ) ;
+     if FileWrite( FHandle, Header, Sizeof(Header) ) <> Sizeof(Header) then
+        ShowMessage( ' File Header Write - Failed ' ) ;
+
+     end ;
+
+
+procedure TMainFrm.GetHeader(
+          FHandle : Integer
+          );
+{ -----------------------------------------------------
+  Read file header block from data file,
+  decode parameter list, and put into FileHeader record
+  -----------------------------------------------------}
+var
+   Header : array[1..HeaderSize] of ANSIchar ;
+   i : LongInt ;
+   ch : Integer ;
+   NumMarkers : Integer ;
+   MarkerTime : Single ;
+   MarkerText : String ;
+   SingValue : Single ;
+begin
+
+     FileSeek( FHandle, 0, 0 ) ;
+     if FileRead(FHandle, Header, Sizeof(Header))
+        = Sizeof(Header) then begin
+
+          ReadInt( Header, 'NC=', ADCNumChannels ) ;
+
+          // Set zoom in pop for this number of channels
+          SetZoomPopupMenu ;
+
+          // Upper/lower limits of A/D sample integer value range
+          ReadInt( Header, 'ADCMAX=', ADCMaxValue ) ;
+          ReadInt( Header, 'ADCMin=', ADCMinValue ) ;
+          if ADCMaxValue = 0 then begin
+             ADCMaxValue := 32767 ;
+             ADCMinValue := -32768 ;
+             end ;
+
+          // Upper/lower limits of D/A integer value range
+          ReadInt( Header, 'DACMAX=', MaxDACValue ) ;
+          ReadInt( Header, 'DACMIN=', MinDACValue ) ;
+
+          { Calculate number of samples in file from file length }
+          NumSamplesInFile := (FileSeek( FileHandle, 0, 2 )
+                                  - Sizeof(Header)) div 2 ;
+
+//          ReadFloat( Header, 'AD=', fValue ) ;
+//          SESLabIO.ADCVoltageRange := fValue ;
+
+          ReadFloat( Header, 'DT=',ADCSamplingInterval);
+
+          ReadFloat( Header, 'TD=',SingValue );
+          edTDisplay.Value := SingValue ;
+          ReadFloat( Header, 'TZ=', TimeZero );
+
+          DigitalFilter.Factor := 1.0 ;
+          ReadFloat( Header, 'DF=',DigitalFilter.Factor);
+
+          ReadString( Header, 'ID=', IdentLine ) ;
+          EdIdentLine.text := IdentLine ;
+
+          for ch := 0 to ADCNumChannels-1 do begin
+
+              ReadFloat( Header, format('AD%d=',[ch]), ADCChannelVoltageRange[ch] ) ;
+              ReadString( Header, format('YU%d=',[ch]), ADCChannelUnits[ch] ) ;
+              ReadString( Header, format('YN%d=',[ch]), ADCChannelName[ch] ) ;
+              ReadFloat( Header, format('YS%d=',[ch]), ADCChannelScale[ch] ) ;
+              ReadFloat( Header, format('YC%d=',[ch]), ADCChannelVoltsPerUnit[ch] ) ;
+              ReadFloat( Header, format('YAG%d=',[ch]), ADCChannelGain[ch]) ;
+              ReadInt( Header, format('YZ%d=',[ch]), ADCChannelZero[ch] ) ;
+              ReadInt( Header, format('YO%d=',[ch]), ADCChannelOffset[ch] ) ;
+
+              ReadFloat( Header, format('YMAX%d=',[ch]), ADCChannelYMax[ch] ) ;
+              ReadFloat( Header, format('YMIN%d=',[ch]), ADCChannelYMin[ch] ) ;
+
+              // Printer calibration bar value
+              ReadFloat( Header, format('YB%d=',[ch]), ADCCalibrationBar[ch] ) ;
+
+              // Calibration wizard value
+              //ReadFloat( Header, format('YV%d=',[ch]), ADCCalibrationValue[ch] ) ;
+
+              end ;
+
+          { Save RMS & HR processor setting }
+          ReadInt( Header, 'FCRMS=', RMS.FromChannel ) ;
+          ReadInt( Header, 'TCRMS=', RMS.toChannel ) ;
+          ReadInt( Header, 'AVRMS=', RMS.NumAverage ) ;
+          ReadLogical( Header, 'IURMS=', RMS.InUse ) ;
+
+          ReadInt( Header, 'FCHR=', HR.FromChannel ) ;
+          ReadInt( Header, 'TCHR=', HR.toChannel ) ;
+          ReadFloat( Header, 'THHR=', HR.PercentageThreshold ) ;
+          ReadFloat( Header, 'MAXHR=', HR.MaxScale ) ;
+          ReadLogical( Header, 'IUHR=', HR.InUse ) ;
+          ReadLogical( Header, 'DSPHR=', HR.DisplayHR ) ;
+
+          { Read Markers }
+          ReadInt( Header, 'MKN=', NumMarkers ) ;
+          MarkerList.Clear ;
+          for i := 0 to NumMarkers-1 do begin
+              ReadFloat( Header, format('MKTIM%d=',[i]), MarkerTime ) ;
+              ReadString( Header, format('MKTXT%d=',[i]), MarkerText ) ;
+              MarkerList.AddObject( MarkerText, TObject(MarkerTime) ) ;
+              end ;
+          edNumMarkers.text := format('%d',[MaxMarkers-MarkerList.Count]);
+
+          end
+     else
+          ShowMessage( format(' File Header Read - Failed %d',[FileHandle]) ) ;
+
+//     Caption := ProgName + ' : ' + FileName ;
+     if RecordingDisabled then Caption := Caption + ' [DISPLAY ONLY]' ;
+
+     // Report duration of recording in file
+     StatusBar.SimpleText :=  format('Loaded: %.4g %s (%d Kb)',
+                              [(NumSamplesInFile div scDisplay.NumChannels)*ADCSamplingInterval*TScale,
+                               TUnits,
+                               NumSamplesInFile div 512]) ;
+
+     end ;
+
+procedure TMainFrm.SetZoomPopupMenu ;
+// ----------------------------
+// Set zoom channel pop-up menu
+// ----------------------------
+var
+    ch : Integer ;
+begin
+    for ch := 0 to ChannelLimit do
+        if ch < scDisplay.NumChannels then begin
+           mnZoomIn.Items[ch].Visible := True ;
+           mnZoomIn.Items[ch].Caption := format('Ch.%d (%s)',[ch,scDisplay.ChanName[ch]]) ;
+           mnZoomOut.Items[ch].Visible := True ;
+           mnZoomOut.Items[ch].Caption := format('Ch.%d (%s)',[ch,scDisplay.ChanName[ch]]) ;
+           end
+        else begin
+           mnZoomIn.Items[ch].Visible := False ;
+           mnZoomOut.Items[ch].Visible := False ;
+           end ;
+      end ;
+
+
+procedure TMainFrm.FormClose(Sender: TObject; var Action: TCloseAction);
+{ ------------------------------------
+  Close main form (shuts down program)
+  ------------------------------------}
+begin
+
+        if MessageDlg('Terminate Chart?', mtConfirmation,
+           [mbYes,mbNo],0) = mrYes then begin
+
+           // Save settings to INI file
+           if INIFileHandle >= 0 then begin
+              // Close open INI file
+              FileClose( INIFileHandle ) ;
+              INIFileHandle := -1 ;
+              // Save settings to it
+              SaveSettingsFile( INIFileName, True ) ;
+              end ;
+
+           // Save existing data file (if required)
+           if FileSaveRequired then SaveToDataFile( SaveFileName ) ;
+
+           // Close temp data file
+           if FileHandle >= 0 then FileClose( FileHandle ) ;
+           if FileExists(TempDataFileName) then DeleteFile(PChar(TempDataFileName)) ;
+
+           { Disable active sub-systems(Failure to do so - crashes Windows) }
+
+           if not RecordingDisabled then begin
+              // Stop D/A sub-system
+              if SESLABIO.DACActive then SESLABIO.DACStop ;
+              DACV[StimDACChan] := Stimulator.PulseVOff ;
+              SESLABIO.WriteDACS( DACV, 2 ) ;
+
+              // Stop stimulus pulse interval timer
+              if SESLABIO.TimerActive then SESLABIO.StopTimer ;
+
+              // Stop A/D conversion
+              if SESLabIO.ADCActive then SESLabIO.ADCStop ;
+              end ;
+
+           { Dispose of objects which have been created }
+           MarkerList.Free ;
+
+           end
+        else Action := caNone ;
+        end ;
+
+
+procedure TMainFrm.sbStartTimeChange(Sender: TObject);
+// ------------------------------------------
+// Display window position scroll bar changed
+// ------------------------------------------
+begin
+     if not LiveMode then begin
+        edStartTime.Value := ADCSamplingInterval*(sbStartTime.Position) ;
+        DisplayFromFile ;
+        end ;
+     end;
+
+
+procedure TMainFrm.mnNewClick(Sender: TObject);
+// -----------------------------
+//  Create a New .cht data file
+//  ----------------------------
+begin
+
+   // Save existing data
+   if FileSaveRequired then begin
+      SaveToDataFile( SaveFileName ) ;
+      SaveDirectory := GetDirectory( SaveFileName ) ;
+      end ;
+
+   // Present user with standard Save File dialog box
+   SaveDialog.options := [ofHideReadOnly,ofPathMustExist] ;
+   SaveDialog.FileName := CreateIndexedFileName ;
+   SaveDialog.DefaultExt := DataFileExtension ;
+   SaveDialog.Filter := format( ' Chart Files (*%s)|*%s',
+                                  [DataFileExtension,DataFileExtension]) ;
+   SaveDialog.Title := 'New Data File' ;
+   SaveDialog.InitialDir := SaveDirectory ;
+   if SaveDialog.Execute then begin
+     if ExtractFileDrive(ChartDirectory) <> ExtractFileDrive(SaveDialog.FileName) then begin
+        ShowMessage('Unable to create file! Files can only be created in folders on drive ' + ExtractFileDrive(ChartDirectory));
+        exit ;
+        end ;
+     SaveFileName := SaveDialog.FileName ;
+     Caption := 'File: ' + SaveFileName ;
+     ClearTempFile ;
+     end ;
+   end;
+
+
+procedure TMainFrm.ClearTempFile ;
+// -------------------------
+// Clear temporary data file
+// -------------------------
+begin
+
+     // Close currently open data file
+     if FileHandle >= 0  then FileClose( FileHandle ) ;
+     DeleteFile( PChar(TempDataFileName) ) ;
+     FileHandle := FileCreate(TempDataFileName) ;
+     if FileHandle <= 0 then begin
+        ShowMessage('ERROR! Unable to create file:' + TempDataFileName ) ;
+        Exit ;
+        end ;
+
+     NumSamplesInFile := 0 ;
+     ADCSamplingInterval := SESLabIO.ADCSamplingInterval ;
+
+     MarkerList.Clear ;
+     edNumMarkers.text := format('%d',[MaxMarkers-MarkerList.Count]);
+     edMarker.text := '' ;
+     edIdentLine.text := '' ;
+
+     // Save header to file
+     SaveHeader( FileHandle ) ; ;
+     TZeroScan := 0 ;
+     Caption := 'File: ' + SaveFileName ;
+     if RecordingDisabled then Caption := Caption + ' [DISPLAY ONLY]' ;
+
+     edStartTime.Value := 0.0 ;
+     InitialiseDisplay ;
+     DisplayFromFile ;
+
+
+     end ;
+
+
+procedure TMainFrm.mnOpenClick(Sender: TObject);
+// --------------------------------
+//  Open an existing .cht data file
+//  -------------------------------
+begin
+
+   if FileSaveRequired then begin
+      SaveToDataFile( SaveFileName ) ;
+      SaveDirectory := GetDirectory( SaveFileName ) ;
+      end ;
+
+   OpenDialog.options := [ofPathMustExist] ;
+   OpenDialog.FileName := '' ;
+   OpenDialog.DefaultExt := DataFileExtension ;
+   OpenDialog.InitialDir := SaveDirectory ;
+   OpenDialog.Filter := format( ' Chart Files (*%s)|*%s',
+                                [DataFileExtension,DataFileExtension]) ;
+   OpenDialog.Title := 'Open File ' ;
+
+   // Open selected data file
+   if OpenDialog.execute then begin
+      LoadFromDataFile( OpenDialog.FileName ) ;
+      // Display file
+      edStartTime.Value := 0.0 ;
+      DisplayFromFile ;
+      end ;
+
+   end ;
+
+
+function TMainFrm.GetDirectory( FileName : String ) : String ;
+// ----------------------------------
+// Get name of directory holding file
+// ----------------------------------
+var
+    DirName : String ;
+begin
+
+    DirName := ExtractFileDir(FileName) ;
+    if ANSIRightStr( DirName, 1 ) = '\' then begin
+       DirName := ANSILeftStr( DirName, Length(DirName)-1 ) ;
+       end ;
+    Result := DirName ;
+    end ;
+
+
+procedure TMainFrm.FormResize(Sender: TObject);
+{ -----------------------------------------------
+  Adjust placement of components when form resized
+  -----------------------------------------------}
+begin
+
+     //StatusBar.Top := ClientHeight - StatusBar.Height ;
+     TDisplayPanel.Top := ClientHeight - StatusBar.Height -  TDisplayPanel.Height - 5 ;
+     TDisplayPanel.Width := ClientWidth - TDisplayPanel.Left - 5 ;
+
+     lbTZero.Top := TDisplayPanel.Top - lbTZero.Height - 1 ;
+     scDisplay.top := edIdentLine.Top + (4*edIdentLine.Height) div 3 ;
+     scDisplay.width := Max( ClientWidth - scDisplay.left - 5,2) ;
+     scDisplay.Height := Max( lbTZero.Top - 1 - scDisplay.Top, 2) ;
+
+     sbStartTime.Width := TDisplayPanel.ClientWidth - sbStartTime.Left  - 5 ;
+
+     edIdentLine.Width := scDisplay.Width + scDisplay.Left - edIdentLine.Left ;
+
+     end ;
+
+
+procedure TMainFrm.LoadSettingsFile(
+          const IniFileName : string ;
+          LoadLabInterfaceSettings : Boolean ) ;
+{ ---------------------------------------------------------
+  Read Initialization file to get initial program settings,
+  ---------------------------------------------------------}
+var
+   Header : array[1..HeaderSize] of ANSIchar ;
+   ch,i : LongInt ;
+   IniFileHandle : LongInt ;
+   BoolValue : Boolean ;
+   fValue : Single ;
+   iValue : Integer ;
+   sValue : string ;
+begin
+
+     if not FileExists( IniFileName ) then Exit ;
+
+     // Open initialisation settings file
+     IniFileHandle := FileOpen( IniFileName, fmOpenRead ) ;
+     if (IniFileHandle < 0) then Exit ;
+
+     if FileRead( IniFileHandle, Header, Sizeof(Header)) > 0 then begin
+
+        if LoadLabInterfaceSettings then begin
+           ReadInt( Header, 'LABINT=', LabInterfaceType ) ;
+           ReadInt( Header, 'DEV=', DeviceNum ) ;
+           ReadInt( Header, 'ADCIPM=', ADCInputMode ) ;
+           end ;
+
+        // Load from older DDIR setting if available
+        ReadString( Header, 'DDIR=', SaveDirectory ) ;
+        // Load from new folder setting
+        ReadString( Header, 'SAVEDIR=', SaveDirectory ) ;
+
+        // Ensure trailing \ removed from directories
+        if ANSIRightStr( SaveDirectory, 1 ) = '\' then begin
+           SaveDirectory := ANSILeftStr( SaveDirectory,
+                                         Length(SaveDirectory)-1 ) ;
+           end ;
+
+        //ReadString( Header, 'FILE=', FileName ) ;
+
+        ReadString( Header, 'TUNITS=', TUnits ) ;
+        ReadFloat( Header, 'TSCALE=', TScale ) ;
+        if TScale <= 0.0 then begin
+           TScale := 1.0 ;
+           TUnits := 's' ;
+           end ;
+        if TUnits = 'm' then rbTUnitsMinutes.Checked := True
+                        else rbTUnitsMinutes.Checked := False ;
+        rbTUnitsSeconds.Checked := not rbTUnitsMinutes.Checked ;
+        edStartTime.Scale := TSCale ;
+        edStartTime.Units := TUnits ;
+        edTDisplay.Scale := TSCale ;
+        edTDisplay.Units := TUnits ;
+
+        fValue := 100.0 ;
+        ReadFloat( Header, 'TD=',fValue );
+        if fValue <= 0.0 then fValue := 1.0 ;
+        edTDisplay.Value := fValue ;
+
+        ReadInt( Header, 'CEDI=', CED1902.Input ) ;
+        ReadInt( Header, 'CEDG=', CED1902.Gain ) ;
+        ReadFloat( Header, 'CEDGV=', CED1902.GainValue ) ;
+        ReadInt( Header, 'CEDLP=', CED1902.LPFilter ) ;
+        ReadInt( Header, 'CEDHP=', CED1902.HPFilter ) ;
+        ReadInt( Header, 'CEDAC=', CED1902.ACCoupled ) ;
+        ReadInt( Header, 'CEDNF=', CED1902.NotchFilter ) ;
+        ReadLogical( Header, 'CEDIU=', CED1902.InUse ) ;
+        ReadInt( Header, 'CEDPO=', CED1902.ComPort ) ;
+        CED1902.DCOffset := 0 ;
+        ReadInt( Header, 'CEDDCO=', CED1902.DCOffset ) ;
+
+        { Send new values to CED 1902 }
+        //if CED1902.InUse then CED1902.UpdateAmplifier ;
+
+        { Read Stimulator settings }
+        ReadFloat( Header, 'STGI=', Stimulator.GroupInterval ) ;
+        if Stimulator.GroupInterval <= 0.0 then Stimulator.GroupInterval  := 1.0 ;
+        ReadFloat( Header, 'STFR=', Stimulator.PulseFrequency ) ;
+        if Stimulator.PulseFrequency <= 0.0 then Stimulator.PulseFrequency := 1.0 ;
+        ReadInt( Header, 'STPPG=', Stimulator.PulsesPerGroup ) ;
+        ReadFloat( Header, 'STPWI=', Stimulator.PulseWidth ) ;
+        if Stimulator.PulseWidth <= 0.0 then Stimulator.PulseWidth := 0.1 ;
+        ReadFloat( Header, 'STPAM=', Stimulator.PulseVOn ) ;
+        ReadFloat( Header, 'STVON=', Stimulator.PulseVOn ) ;
+        ReadFloat( Header, 'STVOFF=', Stimulator.PulseVOff ) ;
+
+        // Display calibration grid setting
+        ReadLogical( Header, 'DISPGRID=', BoolValue ) ;
+        mnShowGrid.Checked := BoolValue ;
+
+        // Automatic data file backup
+        ReadLogical( Header, 'BAKEN=', BackupEnabled ) ;
+        ReadFloat( Header, 'BAKINT=', BackupInterval ) ;
+
+        // Page/metafile settings
+        ReadFloat( Header, 'PAGELM=', Plot.LeftMargin ) ;
+        ReadFloat( Header, 'PAGERM=', Plot.RightMargin ) ;
+        ReadFloat( Header, 'PAGETM=', Plot.TopMargin ) ;
+        ReadFloat( Header, 'PAGEBM=', Plot.BottomMargin ) ;
+        ReadInt( Header, 'PAGELT=', Plot.LineThickness ) ;
+        ReadString( Header, 'PAGEFN=', Plot.FontName ) ;
+        ReadInt( Header, 'PAGEFS=', Plot.FontSize ) ;
+        ReadInt( Header, 'MFWIDTH=', Plot.MetafileWidth ) ;
+        ReadInt( Header, 'MFHEIGHT=', Plot.MetafileHeight ) ;
+
+        // Channel settings
+        ReadInt( Header, 'NC=', iValue ) ;
+        SESLabIO.ADCNumChannels := Max(iValue,1) ;
+
+        ADCSamplingInterval := 0.01 ;
+        ReadFloat( Header, 'DT=', fValue ) ;
+        SESLabIO.ADCSamplingInterval :=  fValue ;
+
+        for ch := 0 to SESLabIO.ADCNumChannels-1 do begin
+
+            ReadFloat( Header, format('AD%d=',[ch]), fValue ) ;
+            if fValue <= 0.0 then fValue := 10.0 ;
+            SESLabIO.ADCChannelVoltageRange[ch] := fValue ;
+
+            iValue := ch ;
+            ReadInt( Header, format('AI%d=',[ch]), iValue ) ;
+            SESLabIO.ADCChannelInputNumber[ch] := iValue ;
+
+            ReadString( Header, format('YU%d=',[ch]), sValue ) ;
+            if sValue = '' then sValue := 'V' ;
+            SESLabIO.ADCChannelUnits[ch] := sValue ;
+
+            ReadString( Header, format('YN%d=',[ch]), sValue ) ;
+            if sValue = '' then sValue := format('Ch.%d',[ch]);
+            SESLabIO.ADCChannelName[ch] := sValue ;
+
+            ReadFloat(Header,format('YG%d=',[ch]), fValue ) ;
+            if fValue <= 0.0 then fValue := 1.0 ;
+            SESLabIO.ADCChannelGain[ch] := fValue ;
+
+            ReadFloat( Header, format('YC%d=',[ch]), fValue ) ;
+            if fValue = 0.0 then fValue := 1.0 ;
+            SESLabIO.ADCChannelVoltsPerUnit[ch] := fValue ;
+
+            ReadInt( Header, format('YZ%d=',[ch]), iValue ) ;
+            ADCChannelZero[ch] := iValue ;
+
+            ReadFloat( Header, format('YV%d=',[ch]), ADCCalibrationValue[ch] ) ;
+
+            end ;
+
+        // Digital filter
+        BoolValue := False ;
+        ReadLogical( Header, 'DIGFILTIU=', BoolValue ) ;
+        DigitalFilter.InUse := BoolValue ;
+        fValue := 1.0 ;
+        ReadFloat( Header, 'DIGFILTFAC=', fValue ) ;
+        DigitalFilter.Factor := fValue ;
+
+        // HR and RMS settings
+        ReadInt( Header, 'FCRMS=', RMS.FromChannel ) ;
+        ReadInt( Header, 'TCRMS=', RMS.toChannel ) ;
+        ReadInt( Header, 'AVRMS=', RMS.NumAverage ) ;
+        ReadLogical( Header, 'IURMS=', RMS.InUse ) ;
+
+        ReadInt( Header, 'FCHR=', HR.FromChannel ) ;
+        ReadInt( Header, 'TCHR=', HR.toChannel ) ;
+        ReadFloat( Header, 'THHR=', HR.PercentageThreshold ) ;
+        ReadFloat( Header, 'MAXHR=', HR.MaxScale ) ;
+        ReadLogical( Header, 'IUHR=', HR.InUse ) ;
+        ReadLogical( Header, 'DSPHR=', HR.DisplayHR ) ;
+
+        ReadFloat( Header, 'DCO=', fValue ) ;
+        edDCOffset.Value := fValue ;
+//        sbDCOffset.Position := Round( edDCOffset.Value/DCOffsetScale ) ;
+
+        // Recent files list
+        for i := 0 to High(RecentFiles) do begin
+            ReadString( Header, format('FILE%d=',[i]), RecentFiles[i] ) ;
+            end ;
+
+        end ;
+
+     // Close file
+     FileClose( IniFileHandle ) ;
+
+     end ;
+
+
+procedure TMainFrm.SaveSettingsFile(
+          const IniFileName : string ;
+          SaveLabInterfaceSettings : Boolean ) ;
+{ --------------------------------------------
+  Save program settings to Initialization file
+  --------------------------------------------}
+var
+   Header : array[1..HeaderSize] of ANSIchar ;
+   i,ch : Integer ;
+   IniFileHandle : Integer ;
+begin
+
+     IniFileHandle := FileCreate( IniFileName ) ;
+     if IniFileHandle < 0 then begin
+        ShowMessage('Unable to create ' + IniFileName) ;
+        Exit ;
+        end ;
+
+     { Initialise empty buffer with zero bytes }
+     for i := 1 to sizeof(Header) do Header[i] := chr(0) ;
+
+     if SaveLabInterfaceSettings then begin
+        AppendInt( Header, 'LABINT=', LabInterfaceType ) ;
+        AppendInt( Header, 'DEV=', DeviceNum ) ;
+        AppendInt( Header, 'ADCIPM=', ADCInputMode ) ;
+        end ;
+
+     AppendString( Header, 'SAVEDIR=', SaveDirectory ) ;
+
+     AppendString( Header, 'FILE=', SaveFileName ) ;
+     AppendString( Header, 'TUNITS=', TUnits ) ;
+     AppendFloat( Header, 'TSCALE=', TScale ) ;
+     AppendFloat( Header, 'TD=',edTDisplay.Value );
+
+     AppendInt( Header, 'CEDI=', CED1902.Input ) ;
+     AppendInt( Header, 'CEDG=', CED1902.Gain ) ;
+     AppendFloat( Header, 'CEDGV=', CED1902.GainValue ) ;
+     AppendInt( Header, 'CEDLP=', CED1902.LPFilter ) ;
+     AppendInt( Header, 'CEDHP=', CED1902.HPFilter ) ;
+     AppendInt( Header, 'CEDAC=', CED1902.ACCoupled ) ;
+     AppendInt( Header, 'CEDNF=', CED1902.NotchFilter ) ;
+     AppendLogical( Header, 'CEDIU=', CED1902.InUse ) ;
+     AppendInt( Header, 'CEDPO=', CED1902.ComPort ) ;
+     AppendInt( Header, 'CEDDCO=', CED1902.DCOffset ) ;
+
+     { Save Stimulator settings }
+     AppendFloat( Header, 'STGI=', Stimulator.GroupInterval ) ;
+     AppendFloat( Header, 'STFR=', Stimulator.PulseFrequency ) ;
+     AppendInt( Header, 'STPPG=', Stimulator.PulsesPerGroup ) ;
+     AppendFloat( Header, 'STPWI=', Stimulator.PulseWidth ) ;
+     AppendFloat( Header, 'STPAM=', Stimulator.PulseVOn ) ;
+     AppendFloat( Header, 'STVON=', Stimulator.PulseVOn ) ;
+     AppendFloat( Header, 'STVOFF=', Stimulator.PulseVOff ) ;
+
+     // Display calibration grid setting
+     AppendLogical( Header, 'DISPGRID=', mnShowGrid.Checked ) ;
+
+     // Automatic data file backup
+     AppendLogical( Header, 'BAKEN=', BackupEnabled ) ;
+     AppendFloat( Header, 'BAKINT=', BackupInterval ) ;
+
+     // Channel settings
+     AppendInt( Header, 'NC=', SESLabIO.ADCNumChannels ) ;
+     AppendFloat( Header, 'DT=', SESLabIO.ADCSamplingInterval ) ;
+     for ch := 0 to ChannelLimit do begin
+         AppendFloat( Header, format('AD%d=',[ch]), SESLabIO.ADCChannelVoltageRange[ch] ) ;
+         AppendInt( Header, format('AI%d=',[ch]), SESLabIO.ADCChannelInputNumber[ch] ) ;
+         AppendString( Header, format('YU%d=',[ch]), SESLabIO.ADCChannelUnits[ch] ) ;
+         AppendString( Header, format('YN%d=',[ch]), SESLabIO.ADCChannelName[ch] ) ;
+         AppendFloat(Header,format('YG%d=',[ch]), SESLabIO.ADCChannelGain[ch]) ;
+         AppendFloat( Header, format('YC%d=',[ch]), SESLabIO.ADCChannelVoltsPerUnit[ch] ) ;
+         AppendInt( Header, format('YZ%d=',[ch]), SESLabIO.ADCChannelZero[ch] ) ;
+         AppendFloat( Header, format('YV%d=',[ch]), ADCCalibrationValue[ch] ) ;
+         end ;
+
+     // Page/metafile settings
+     AppendFloat( Header, 'PAGELM=', Plot.LeftMargin ) ;
+     AppendFloat( Header, 'PAGERM=', Plot.RightMargin ) ;
+     AppendFloat( Header, 'PAGETM=', Plot.TopMargin ) ;
+     AppendFloat( Header, 'PAGEBM=', Plot.BottomMargin ) ;
+     AppendInt( Header, 'PAGELT=', Plot.LineThickness ) ;
+     AppendString( Header, 'PAGEFN=', Plot.FontName ) ;
+     AppendInt( Header, 'PAGEFS=', Plot.FontSize ) ;
+     AppendInt( Header, 'MFWIDTH=', Plot.MetafileWidth ) ;
+     AppendInt( Header, 'MFHEIGHT=', Plot.MetafileHeight ) ;
+
+     // Digital filter
+     AppendLogical( Header, 'DIGFILTIU=', DigitalFilter.InUse ) ;
+     AppendFloat( Header, 'DIGFILTFAC=', DigitalFilter.Factor ) ;
+
+        // HR and RMS settings
+          AppendInt( Header, 'FCRMS=', RMS.FromChannel ) ;
+          AppendInt( Header, 'TCRMS=', RMS.toChannel ) ;
+          AppendInt( Header, 'AVRMS=', RMS.NumAverage ) ;
+          AppendLogical( Header, 'IURMS=', RMS.InUse ) ;
+
+          AppendInt( Header, 'FCHR=', HR.FromChannel ) ;
+          AppendInt( Header, 'TCHR=', HR.toChannel ) ;
+          AppendFloat( Header, 'THHR=', HR.PercentageThreshold ) ;
+          AppendFloat( Header, 'MAXHR=', HR.MaxScale ) ;
+          AppendLogical( Header, 'IUHR=', HR.InUse ) ;
+          AppendLogical( Header, 'DSPHR=', HR.DisplayHR ) ;
+
+     AppendFloat( Header, 'DCO=', edDCOffset.Value ) ;
+
+     // Recent files list
+     for i := 0 to High(RecentFiles) do begin
+         AppendString( Header, format('FILE%d=',[i]), RecentFiles[i] ) ;
+         end ;
+
+     if FileWrite(IniFileHandle,Header,Sizeof(Header)) <> Sizeof(Header) then
+        ShowMessage(INIFileName + ' File Write - Failed ' ) ;
+     FileClose( IniFileHandle ) ;
+
+     end ;
+
+
+procedure TMainFrm.mnPrintClick(Sender: TObject);
+// -------------------------------------
+//  Print the currently displayed chart
+// -------------------------------------
+var
+     EndTime : Single ;
+     SaveStartTime : Single ;
+     PageNum, NumPages : Integer ;
+     ch : Integer ;
+begin
+     PrintRecFrm.Top := Top + 50 ;
+     PrintRecFrm.Left := Left + 50 ;
+     PrintRecFrm.Destination := dePrinter ;
+     PrintRecFrm.DisplayObj := scDisplay ;
+     PrintRecFrm.ShowModal ;
+     if PrintRecFrm.ModalResult = mrOK then begin
+
+        if not Plot.WholeFile then begin
+           // Print current display window
+           scDisplay.ClearPrinterTitle ;
+           scDisplay.AddPrinterTitleLine( 'File : ' + MainFrm.SaveFileName ) ;
+           scDisplay.AddPrinterTitleLine( MainFrm.IdentLine ) ;
+           scDisplay.Print ;
+           for ch := 0 to scDisplay.NumChannels-1 do scDisplay.ChanVisible[ch] := True ;
+           end
+        else begin
+
+           // Print whole file
+           SaveStartTime := edStartTime.Value ;
+
+           // Determine number of pages
+           edStartTime.Value := 0.0 ;
+           EndTime := (NumSamplesInFile div scDisplay.NumChannels)*ADCSamplingInterval ;
+           NumPages := 0 ;
+           While (edStartTime.Value < EndTime) do begin
+               Inc(NumPages) ;
+               edStartTime.Value := edStartTime.Value + edTDisplay.Value ;
+               end ;
+
+           edStartTime.Value := 0.0 ;
+           PageNum := 1 ;
+           AbortOperation := False ;
+           While (edStartTime.Value < EndTime) and (not AbortOperation) do begin
+               // Display window
+               DisplayFromFile ;
+               // Print it
+               scDisplay.ClearPrinterTitle ;
+               scDisplay.AddPrinterTitleLine(
+               format( 'File : %s (Page %d/%d)', [MainFrm.SaveFileName,PageNum,NumPages]) ) ;
+               scDisplay.AddPrinterTitleLine( MainFrm.IdentLine ) ;
+               scDisplay.Print ;
+               // Next start time
+               edStartTime.Value := edStartTime.Value + edTDisplay.Value ;
+               // Report progress
+               StatusBar.SimpleText := format( 'Printing: Page %d/%d (Press ESC key to abort)',
+                                               [PageNum,NumPages]) ;
+               Inc(PageNum) ;
+               Application.ProcessMessages ;
+               end ;
+           StatusBar.SimpleText := '' ;
+           edStartTime.Value := SaveStartTime ;
+           end ;
+
+        end ;
+     end ;
+
+
+procedure TMainFrm.Exit1Click(Sender: TObject);
+{ -----------------
+  Exit from program
+  -----------------}
+begin
+     close ;
+     end ;
+
+
+procedure TMainFrm.mnPrintSetupClick(Sender: TObject);
+// ----------------------------
+//  Run Printer setup dialog box
+// ----------------------------
+begin
+     PrinterSetupDialog.Execute ;
+     end;
+
+
+procedure TMainFrm.About1Click(Sender: TObject);
+{ ------------------------
+  Display about dialog box
+  ------------------------}
+begin
+     AboutDlg.showmodal ;
+     end;
+
+
+procedure TMainFrm.bMarkClick(Sender: TObject);
+// ------------------------------
+//  Add a text marker to the chart
+// ------------------------------
+var
+     MarkerTime : Single ;
+     TimeScale : Single ;
+begin
+
+     if MarkerList.Count < MaxMarkers then begin
+
+          TimeScale := scDisplay.TScale/TScale ;
+
+          // Add marker to list
+          if LiveMode then begin
+             // Mark live recording
+             MarkerTime := (scDisplay.NumPoints + scDisplay.XOffset)*TimeScale ;
+             end
+          else begin
+             // Mark replay
+             MarkerTime := (scDisplay.VerticalCursors[Cursors.C1] + scDisplay.XOffset)*TimeScale ;
+             end ;
+          // Plot marker on chart
+          MarkerList.AddObject( EdMarker.text, TObject(MarkerTime) ) ;
+          scDisplay.AddMarker( Round(MarkerTime/TimeScale) - scDisplay.XOffset,
+                               EdMarker.text );
+
+          end
+     else EdMarker.text := 'List full' ;
+     edNumMarkers.text := format('%d',[MaxMarkers-MarkerList.Count]);
+     end;
+
+
+procedure TMainFrm.bShowTableClick(Sender: TObject);
+{ -----------------------------------------
+  Show table of measurements taken so far
+  ---------------------------------------}
+begin
+     TabForm.showmodal ;
+     end;
+
+
+procedure TMainFrm.mnCalibrateClick(Sender: TObject);
+begin
+     CalibFrm.Top := Top + 50 ;
+     CalibFrm.Left := Left + 50 ;
+     CalibFrm.showmodal ;
+
+     end;
+
+
+procedure TMainFrm.bStimOnOffClick(Sender: TObject);
+// -----------------------
+//  Turn stimulator On/Off
+// -----------------------
+begin
+
+   if not SESLabIO.LabInterfaceAvailable then Exit ;
+
+   if SESLabIO.ADCSamplingInterval > (20.0/SESLabIO.ADCNumChannels) then begin
+      ShowMessage( 'Stimulator not available with sampling intervals >20ms ' ) ;
+      Exit ;
+      end ;
+
+   if not Stimulator.Running then StartStimulator
+                             else StopStimulator ;
+
+   end;
+
+
+procedure TMainFrm.edIdentLineChange(Sender: TObject);
+begin
+     IdentLine := edIdentLine.text ;
+     end;
+
+
+procedure TMainFrm.Contents1Click(Sender: TObject);
+// -----------------------
+//  Help/Contents menu item
+//  -----------------------
+begin
+     //ShellExecute(Handle,'open', 'c:\windows\hh.exe',PChar(Application.HelpFile),
+     //nil, SW_SHOWNORMAL) ;
+     application.HelpContext(10);
+     end;
+
+
+procedure TMainFrm.HowtoUseHelp1Click(Sender: TObject);
+begin
+     application.helpcommand( HELP_HELPONHELP, 0 ) ;
+     end;
+
+procedure TMainFrm.SearchforHelpOn1Click(Sender: TObject);
+begin
+     application.helpcommand( HELP_PARTIALKEY, 0 ) ;
+     end;
+
+
+procedure TMainFrm.mnZoomInClick(Sender: TObject);
+{ --------------------------
+  Open zoom window from menu
+  --------------------------}
+begin
+     //scDisplay.ZoomIn(0) ;
+     //ZoomPopup.Popup(0,0) ;
+     end;
+
+     
+procedure TMainFrm.mnZoomOutAllClick(Sender: TObject);
+// -----------------------------------------
+//  Set vertical display range to full range
+// -----------------------------------------
+begin
+     // Zoom out display
+     scDisplay.ZoomOut ;
+
+     scDisplay.Invalidate ;
+
+     end;
+
+
+procedure TMainFrm.EnableMenus( MenuState : Boolean ) ;
+begin
+     mnFile.enabled := MenuState ;
+     mnEdit.Enabled := MenuState ;
+     mnSetup.Enabled := MenuState ;
+     mnCalibrate.Enabled := MenuState ;
+     mnView.Enabled := True ;
+     mnHelp.Enabled := True ;
+     end ;
+
+
+procedure TMainFrm.bResetClick(Sender: TObject);
+{ ----------------------
+  Reset stop-clock timer
+  ---------------------- }
+begin
+     ElapsedTimeStart := GetTickCount*0.001 ;
+     ElapsedTime := ElapsedTimeStart ;
+     NextTimeDisplay := 0.0 ;
+     edTimer.Text := '' ;
+     end;
+
+
+procedure TMainFrm.bStartTimerClick(Sender: TObject);
+begin
+     StopWatchRunning := True ;
+     ElapsedTimeStart := GetTickCount*0.001 ;
+     NextTimeDisplay := 0.0 ;
+     end;
+
+
+procedure TMainFrm.bStopTimerClick(Sender: TObject);
+begin
+     StopWatchRunning := False ;
+     end;
+
+
+procedure TMainFrm.bGetTZeroClick(Sender: TObject);
+// ---------------------------
+// Place T=0 cursor on display
+// ---------------------------
+begin
+     scDisplay.VerticalCursors[Cursors.C0] := scDisplay.NumPoints div 10 ;
+     TZeroScan := scDisplay.XOffset*Round(scDisplay.TScale/(TScale*ADCSamplingInterval) + scDisplay.VerticalCursors[Cursors.C0]) ;
+     scDisplay.Invalidate ;
+     end;
+
+
+procedure TMainFrm.InitialiseHeartRate ;
+// -----------------------------
+// Initialise heart rate monitor
+// -----------------------------
+begin
+     if HR.InUse then begin
+        if HR.DisplayHR then begin
+           HR.Scale := (60.*ADCMaxValue) / ( HR.MaxScale * ADCSamplingInterval ) ;
+           ADCChannelUnits[HR.ToChannel] := 'bpm' ;
+           ADCChannelName[HR.ToChannel] := 'H.R.' ;
+           end
+        else begin
+           HR.Scale := ADCMaxValue*ADCSamplingInterval / HR.MaxScale ;
+           ADCChannelUnits[HR.ToChannel] :=  's' ;
+           ADCChannelName[HR.ToChannel] := 'R-R' ;
+           end ;
+        end ;
+
+    HR.BeatCounter := 0 ;
+    HR.Baseline := 0 ;
+    { Scaling factor for converting from no. of samples between
+                ECG R-waves to beats per minutes }
+    { Select scaling factor depending on whether results are to
+                be displayed as heart rate or R-R interval }
+    if HR.DisplayHR then begin
+       // Display as beats/min.
+       HR.Scale := (60.*ADCMaxValue) / ( HR.MaxScale * ADCSamplingInterval ) ;
+       ADCChannelUnits[HR.ToChannel] := 'bpm' ;
+       ADCChannelName[HR.ToChannel] := 'H.R.' ;
+       end
+    else begin
+      // Display as R-R interval (s)
+      HR.Scale := (ADCMaxValue*ADCSamplingInterval)/HR.MaxScale ;
+      ADCChannelUnits[HR.ToChannel] := 's' ;
+      ADCChannelName[HR.ToChannel] := 'R-R' ;
+      end ;
+
+    ADCChannelScale[HR.ToChannel] := HR.MaxScale / Max(ADCMaxValue,1) ;
+    ADCChannelGain[HR.ToChannel] := 1. ;
+    ADCChannelVoltsPerUnit[HR.ToChannel] := ADCChannelVoltageRange[HR.ToChannel] /
+                                                (ADCChannelScale[HR.ToChannel]*
+                                                ADCChannelGain[HR.ToChannel]*
+                                                (ADCMaxValue+1)) ;
+    ADCChannelZero[HR.ToChannel] := 0 ;
+
+    scDisplay.ChanScale[HR.ToChannel] := ADCChannelScale[HR.ToChannel] ;
+    scDisplay.ChanUnits[HR.ToChannel] := ADCChannelUnits[HR.ToChannel] ;
+    scDisplay.ChanName[HR.ToChannel] := ADCChannelName[HR.ToChannel] ;
+
+    { Dead time interval between spikes }
+    HR.DeadTime := Round( 0.1 /ADCSamplingInterval ) ;
+    { Low heart rate limit ... sets the time limit that the HR
+                processor will wait for a beat }
+    HR.LoRateLimit := Round( 60. / (20.*ADCSamplingInterval) ) ;
+
+    ADCCalibrationBar[HR.ToChannel] := 1. ;
+    scDisplay.ChanZero[HR.ToChannel] := 0 ;
+    HR.yMax := ADCMinValue ;
+    HR.yMin := ADCMaxValue ;
+
+    { Initialise and request setting of heartbeat detector threshold }
+    HR.SetThreshold := True ;
+    HR.MaxLevel := 0 ;
+    HR.ThresholdCounter := Round(2.0/ADCSamplingInterval) ;
+    end ;
+
+
+procedure TMainFrm.ComputeHeartRate(
+          var Buf : Array of SmallInt ;
+          ScanStart : Integer ) ;
+// -------------------
+// Compute heart rate
+// -------------------
+var
+    y : Integer ;
+begin
+
+     { Get ECG signal value from selected channel }
+     HR.ECG := Buf[ScanStart + scDisplay.ChanOffsets[HR.FromChannel]] ;
+     HR.BeatCounter := HR.BeatCounter + 1 ;
+
+     { Determine threshold for heartbeat detector }
+     if HR.SetThreshold then begin
+        y := HR.ECG - HR.Baseline ;
+        if y > HR.MaxLevel then HR.MaxLevel := y ;
+        if HR.ThresholdCounter <= 0 then begin
+           HR.Threshold := Abs(Round(0.01*HR.PercentageThreshold*HR.MaxLevel)) ;
+           HR.ThresholdCounter := 0 ;
+           HR.SetThreshold := false ;
+           end
+        else Dec(HR.ThresholdCounter) ;
+        end ;
+
+     if HR.BeatCounter > HR.DeadTime then begin
+        if (HR.BeatCounter > HR.LoRateLimit) then begin
+           { Interval since last R-wave exceeds limit
+                             ... assume ECG has disappeared and set HR=0}
+           HR.HeartRate := 0 ;
+           HR.BeatCounter := 0 ;
+           end
+        else if ((HR.ECG - HR.Baseline) > HR.Threshold) then begin
+          { R-Wave detected ... calculate heart rate or R-R interval }
+           if HR.DisplayHR then
+              HR.HeartRate := Round((1. / HR.BeatCounter)* HR.Scale )
+           else
+              HR.HeartRate := Trunc(HR.BeatCounter*HR.Scale) ;
+           HR.BeatCounter := 0 ;
+           end ;
+        end ;
+     //outputdebugstring(pchar(format('%d',[HR.BeatCounter]))) ;
+     { Update ECG baseline }
+     HR.Baseline := Round( ( 0.2*HR.ECG + 0.8*HR.Baseline) ) ;
+
+     // Update stored data channel
+     if HR.HeartRate > ADCMaxValue then HR.HeartRate := ADCMaxValue ;
+     if HR.HeartRate < 0 then HR.HeartRate := 0 ;
+
+     // Update heart rate channel
+     Buf[ScanStart + scDisplay.ChanOffsets[HR.ToChannel]] := HR.HeartRate ;
+
+     { Update Min./Max. }
+     If HR.HeartRate <= HR.YMin  Then HR.YMin := HR.HeartRate ;
+     If HR.HeartRate >= HR.YMax Then  HR.YMax := HR.HeartRate ;
+
+     end ;
+
+
+procedure TMainFrm.bResetHRMonitorClick(Sender: TObject);
+{ --------------------------------------------------
+  Request heart beat detection threshold to be reset
+  -------------------------------------------------- }
+begin
+     HR.SetThreshold := True ;
+     HR.MaxLevel := 0 ;
+     HR.ThresholdCounter := Round(2.0 /ADCSamplingInterval) ;
+
+     end;
+
+
+procedure TMainFrm.InitialiseRMS ;
+// -----------------------------------
+// Initialise root mean square channel
+// -----------------------------------
+var
+    i : Integer ;
+begin
+    RMS.Pointer := 0 ;
+    RMS.Sum := 0. ;
+    RMS.Scale := 1. / RMS.NumAverage ;
+    for i := 0 to High(RMS.Buf) do RMS.Buf[i] := 0 ;
+    RMS.yMax := ADCMinValue ;
+    RMS.yMin := ADCMaxValue ;
+    end ;
+
+
+procedure TMainFrm.ComputeRMS(
+          var Buf : Array of SmallInt ;
+          ScanStart : Integer ) ;
+// --------------------------------
+// Compute root mean square channel
+// --------------------------------
+var
+    yRMS : Integer ;
+    y : Integer ;
+begin
+
+     // Get raw signal value from selected channel }
+     yRMS := Buf[ScanStart + scDisplay.ChanOffsets[RMS.FromChannel]]
+             - ROund(scDisplay.ChanZero[RMS.FromChannel]) ;
+
+     // Square it
+     yRMS := yRMS*yRMS ;
+
+     // Add to running average }
+     RMS.Sum := RMS.Sum - RMS.Buf[RMS.Pointer] ;
+     RMS.Buf[RMS.Pointer] := yRMS ;
+     RMS.Sum := RMS.Sum + yRMS ;
+
+     // Transfer average to result channel }
+     y := Round( sqrt(Abs(RMS.Sum * RMS.Scale) ) ) ;
+     Buf[ScanStart + scDisplay.ChanOffsets[RMS.ToChannel]] := y ;
+
+     // Update circular averaging buffer pointer
+     RMS.Pointer := RMS.Pointer + 1 ;
+     if RMS.Pointer > (RMS.NumAverage-1) then RMS.Pointer := 0 ;
+
+     { Update Min./Max. }
+     If y <= RMS.YMin  Then RMS.YMin := y ;
+     If y >= RMS.YMax Then RMS.YMax := y ;
+     end ;
+
+
+procedure TMainFrm.edTDisplayKeyPress(Sender: TObject; var Key: Char);
+// -------------------------------------
+// Chart display window duratioh changed
+// -------------------------------------
+begin
+     if Key = #13 then begin
+        if LiveMode then DisplayLive( True )
+                    else DisplayFromFile ;
+        end ;
+     end;
+
+
+procedure TMainFrm.mnSetupRecClick(Sender: TObject);
+ {----------------------------------
+  Display setup recording dialog box
+  ----------------------------------}
+begin
+     // Display dialog box
+     SetupRecFrm.Top := Top + 50 ;
+     SetupRecFrm.Left := Left + 50 ;
+     SetupRecFrm.showmodal ;
+     // Save settings
+     if FileHandle >= 0 then SaveHeader( FileHandle ) ;
+     // Update display
+     InitialiseDisplay ;
+     DisplayFromFile ;
+     end ;
+
+
+procedure TMainFrm.mnSetupCedClick(Sender: TObject);
+{----------------------------------
+  Display setup CED 1902 dialog box
+  ----------------------------------}
+begin
+     SetupCEDFrm.Top := Top + 50 ;
+     SetupCEDFrm.Left := Left + 50 ;
+     SetupCEDFrm.showmodal ;
+     if FileHandle >= 0 then SaveHeader( FileHandle ) ;
+     InitialiseDisplay ;
+     DisplayFromFile ;
+     end ;
+
+
+procedure TMainFrm.mnSetupSpecClick(Sender: TObject);
+{----------------------------------
+  Display setup special dialog box
+  ----------------------------------}
+begin
+     SetupSpeFrm.Top := Top + 50 ;
+     SetupSpeFrm.Left := Left + 50 ;
+     SetupSpeFrm.showmodal ;
+     if FileHandle >= 0 then SaveHeader( FileHandle ) ;
+     InitialiseDisplay ;
+     DisplayFromFile ;
+     end ;
+
+
+procedure TMainFrm.mnStimulatorClick(Sender: TObject);
+// -----------------------------------
+// Display stimulator setup dialog box
+// -----------------------------------
+begin
+     StimulatorDlg.Top := Top + 50 ;
+     StimulatorDlg.Left := Left + 50 ;
+     StimulatorDlg.showmodal ;
+     end;
+
+
+procedure TMainFrm.edStartTimeKeyPress(Sender: TObject; var Key: Char);
+// ---------------------------------
+// Display window start time changed
+// ---------------------------------
+begin
+     if Key = #13 then begin
+        sbStartTime.Position := Round(edStartTime.Value/ADCSamplingInterval) ;
+        DisplayFromFile ;
+        end ;
+     end;
+
+
+procedure TMainFrm.mnShowGridClick(Sender: TObject);
+// ---------------------------------------
+// Enable/disable display calibration grid
+// ---------------------------------------
+begin
+     mnShowGrid.Checked := not mnShowGrid.Checked ;
+     DisplayFromFile ;
+     end;
+
+
+procedure TMainFrm.scDisplayCursorChange(Sender: TObject);
+// -----------------------------------------
+// Respond to display cursor position change
+// -----------------------------------------
+var
+   ch,Cursor1Pos,Cursor0Pos : Integer ;
+begin
+
+     // Update signal zero level
+     for ch := 0 to scDisplay.NumChannels-1 do begin
+         scDisplay.ChanZero[ch] := scDisplay.HorizontalCursors[ch] ;
+         ADCChannelZero[ch] := ROund(scDisplay.ChanZero[ch]) ;
+         ADCChannelYMin[ch] := scDisplay.YMin[ch] ;
+         ADCChannelYMax[ch] := scDisplay.YMax[ch] ;
+         end ;
+
+     // Display replay cursor
+
+     if not LiveMode then begin
+
+        { Time zero cursor }
+        Cursor0Pos := Round(scDisplay.VerticalCursors[Cursors.C0]) ;
+        if Cursor0Pos >= 0 then begin
+           lbTZero.Left := scDisplay.XScreenCoord[Cursor0Pos]
+                           + scDisplay.Left - (lbTZero.Width div 2) ;
+           TZeroScan := Round((scDisplay.XOffset + Cursor0Pos)*scDisplay.TScale/(ADCSamplingInterval*TScale)) ;
+           if (lbTZero.Left > (ClientWidth - lbTZero.Width - 1)) or
+              (lbTZero.Left <  (scDisplay.Left - lbTZero.Width)) then
+              lbTzero.Visible := False
+           else lbTzero.Visible := True ;
+           end
+        else begin
+           lbTZero.Left := scDisplay.Left ;
+           lbTzero.Visible := False ;
+           end ;
+
+        { Read out cursor }
+        Cursor1Pos := Round(scDisplay.VerticalCursors[Cursors.C1]) ;
+
+        meCursor.Clear ;
+        CursorTime := (Cursor1Pos + scDisplay.XOffset)*scDisplay.TScale
+                                 - (TZeroScan*ADCSamplingInterval*TScale);
+        meCursor.Lines.Add(format( 't= %.4g %s',
+                                   [CursorTime,TUnits ] ) );
+
+        for ch := 0 to scDisplay.NumChannels-1 do begin
+
+            { Signal level at cursor }
+            CursorValue[ch] := scDisplay.ChanScale[ch] *
+                                      ( DisplayBuf[(Cursor1Pos*scDisplay.NumChannels)+scDisplay.ChanOffsets[ch]]
+                                      - scDisplay.ChanZero[ch] ) ;
+            { Add to readout list }
+            meCursor.Lines.Add(format( '%s= %.4g %s',
+                                       [scDisplay.ChanName[ch],
+                                        CursorValue[ch] ,
+                                        scDisplay.ChanUnits[ch]] ) );
+            end ;
+        end ;
+
+
+     TScopeDisplay(Sender).CursorChangeInProgress := False ;
+
+     end;
+
+
+procedure TMainFrm.rbTUnitsSecondsClick(Sender: TObject);
+// ---------------------------------
+// Set time readout units to seconds
+// ---------------------------------
+begin
+    TUnits := 's' ;
+    TSCale := 1.0 ;
+    edStartTime.Scale := TSCale ;
+    edStartTime.Units := TUnits ;
+    edTDisplay.Scale := TSCale ;
+    edTDisplay.Units := TUnits ;
+    if LiveMode then DisplayLive( True )
+                else DisplayFromFile ;
+    end;
+
+
+procedure TMainFrm.rbLiveModeClick(Sender: TObject);
+//  ------------------------
+// Set display to live mode
+// ------------------------
+begin
+     LiveMode := True ;
+     SetControlsForLiveMode( LiveMode ) ;
+     DisplayLive( True ) ;
+     sbStartTime.Enabled := False ;
+     end;
+
+
+procedure TMainFrm.rbReplayModeClick(Sender: TObject);
+//  ------------------------
+// Set display to replay mode
+// ------------------------
+begin
+     LiveMode := False ;
+     SetControlsForLiveMode( LiveMode ) ;
+     DisplayFromFile ;
+     end;
+
+
+procedure TMainFrm.rbTUnitsMinutesClick(Sender: TObject);
+// ---------------------------------
+// Set time readout units to minutes
+// ---------------------------------
+begin
+    TUnits := 'm' ;
+    TSCale := 1.0 / 60.0 ;
+    edStartTime.Scale := TSCale ;
+    edStartTime.Units := TUnits ;
+    edTDisplay.Scale := TSCale ;
+    edTDisplay.Units := TUnits ;
+    if LiveMode then DisplayLive( True )
+                else DisplayFromFile ;
+    end;
+
+
+procedure TMainFrm.mnCopyDataClick(Sender: TObject);
+// ----------------------------------------------------
+// Copy sample values of displayed signals to clipboard
+// ----------------------------------------------------
+begin
+     scDisplay.CopyDataToClipboard ;
+     end;
+
+
+procedure TMainFrm.mnCopyImageClick(Sender: TObject);
+// -----------------------------------------------------
+//  Copy displayed image to clipboard as Windows metafile
+// -----------------------------------------------------
+var
+    ch : Integer ;
+begin
+
+     PrintRecFrm.Top := Top + 50 ;
+     PrintRecFrm.Left := Left + 50 ;
+     PrintRecFrm.Destination := deClipboard ;
+     PrintRecFrm.DisplayObj := scDisplay ;
+     PrintRecFrm.ShowModal ;
+     if PrintRecFrm.ModalResult = mrOK then begin
+        scDisplay.ClearPrinterTitle ;
+        scDisplay.AddPrinterTitleLine( 'File : ' + SaveFileName ) ;
+        scDisplay.AddPrinterTitleLine( IdentLine ) ;
+        scDisplay.CopyImageToClipboard ;
+        for ch := 0 to scDisplay.NumChannels-1 do scDisplay.ChanVisible[ch] := True ;
+        end ;
+     end ;
+
+
+procedure TMainFrm.bAddToTableClick(Sender: TObject);
+// ---------------------------
+// Add cursor reading to table
+// ---------------------------
+var
+     ch : Integer ;
+begin
+     TabForm.Table.ColCount := scDisplay.NumChannels + 1 ;
+     TabForm.Table.RowCount := TabForm.Table.RowCount + 1 ;
+     TabForm.Table.Cells[0,TabForm.Table.RowCount-1] :=
+         format('%.6g',[CursorTime]) ;
+     for ch := 0 to scDisplay.NumChannels-1 do
+         TabForm.Table.Cells[ch+1,TabForm.Table.RowCount-1] :=
+         format('%.6g',[CursorValue[ch]]) ;
+
+     end;
+
+
+procedure TMainFrm.edMarkerKeyPress(Sender: TObject; var Key: Char);
+// -------------------
+// Marker text changed
+// -------------------
+begin
+     if Key = #13 then bMark.Click ;
+     end;
+
+
+procedure TMainFrm.mnEditMarkersClick(Sender: TObject);
+// --------------------------------------
+//  Display edit chart markers dialog box
+// --------------------------------------
+begin
+     // Display dialog box
+     EditMarkersFrm.Top := Top + 50 ;
+     EditMarkersFrm.Left := Left + 50 ;
+     EditMarkersFrm.showmodal ;
+     // Save settings
+     if FileHandle >= 0 then SaveHeader( FileHandle ) ;
+     // Update display
+     DisplayFromFile ;
+     end ;
+
+
+procedure TMainFrm.mnLoadSettingsClick(Sender: TObject);
+// --------------------------------
+//  Load settings from a .SET file
+//  -------------------------------
+var
+    i : Integer ;
+begin
+
+   OpenDialog.options := [ofPathMustExist] ;
+   OpenDialog.DefaultExt := SettingsFileExtension ;
+   OpenDialog.InitialDir := ChartDirectory ;
+   OpenDialog.Filter := format( ' Settings Files (*%s)|*%s',
+                                [SettingsFileExtension,SettingsFileExtension]) ;
+   OpenDialog.Title := ' Load Settings ' ;
+
+   if OpenDialog.execute then begin
+
+      // Save existing data file (if required)
+      if FileSaveRequired then SaveToDataFile( SaveFileName ) ;
+
+      // Load settings
+      LoadSettingsFile( OpenDialog.FileName, False ) ;
+
+      // Clear recent files list
+      for i := 0 to High(RecentFiles) do RecentFiles[i] := '' ;
+
+      // Create a new file name
+      mnNew.Click ;
+
+      end ;
+
+   end ;
+
+
+procedure TMainFrm.mnSaveSettingsClick(Sender: TObject);
+// -----------------------------
+//  Save settings to a .SET file
+// ------------------------------
+begin
+
+     // Present user with standard Save File dialog box
+     SaveDialog.options := [ofOverwritePrompt,ofHideReadOnly,ofPathMustExist] ;
+     SaveDialog.DefaultExt := SettingsFileExtension ;
+     SaveDialog.Filter := format( ' Settings Files (*%s)|*%s',
+                                  [SettingsFileExtension,SettingsFileExtension]) ;
+     SaveDialog.Title := 'Save Settings' ;
+     SaveDialog.InitialDir := ChartDirectory ;
+
+     if SaveDialog.Execute then SaveSettingsFile( SaveDialog.FileName, False ) ;
+
+     end ;
+
+
+procedure TMainFrm.mnZoomIn0Click(Sender: TObject);
+// --------------------------------------------
+// Zoom in vertically (X2) for selected channel
+// --------------------------------------------
+begin
+     scDisplay.YZoom(TMenuItem(Sender).Tag,-50.0) ;
+     end;
+
+
+procedure TMainFrm.FormKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+     if Key = VK_ESCAPE then AbortOperation := True ;
+     end;
+
+procedure TMainFrm.mnSaveAsClick(Sender: TObject);
+// -------------------------------
+//  Make copy of current data file
+//  ------------------------------
+var
+  FileName : string ;
+begin
+
+     { Present user with standard Save File dialog box }
+     SaveDialog.options := [ofHideReadOnly,ofPathMustExist] ;
+     SaveDialog.FileName := '' ;
+     SaveDialog.DefaultExt := DataFileExtension ;
+     SaveDialog.Filter := format( ' Chart Files (*%s)|*%s',
+                                  [DataFileExtension,DataFileExtension]) ;
+     SaveDialog.Title := 'Save Data File As' ;
+     SaveDialog.InitialDir := SaveDirectory ;
+     SaveDialog.FileName := ExtractFileName( SaveFileName ) ;
+
+     if SaveDialog.Execute then begin
+        if not FileExists(SaveDialog.FileName) then begin
+           FileName := ChangeFileExt(SaveDialog.FileName,'.cht') ;
+           SaveToDataFile( FileName ) ;
+//           SaveDirectory := GetDirectory( SaveFileName ) ;
+           end
+        else ShowMessage('File ' + SaveDialog.FileName + ' already exists. Choose another name!') ;
+        end ;
+
+     end;
+
+
+procedure TMainFrm.mnZoomOut0Click(Sender: TObject);
+// --------------------------------------------
+// Zoom out vertically (X2) for selected channel
+// --------------------------------------------
+begin
+     scDisplay.YZoom(TMenuItem(Sender).Tag,50.0) ;
+     end;
+
+procedure TMainFrm.AddToRecentFilesList(
+          FileName : String
+          ) ;
+// -----------------------------------------------------
+// Add recently opened/created file to recent files menu
+// -----------------------------------------------------
+var
+    i : Integer ;
+begin
+
+    if FileName = '' then Exit ;
+
+    // Exit if file is already in list
+    for i := 0 to High(RecentFiles) do
+        if FileName = RecentFiles[i] then Exit ;
+
+    // Update list (most recent at top)
+    for i := High(RecentFiles) downto 1 do RecentFiles[i] := RecentFiles[i-1] ;
+    RecentFiles[0] := FileName ;
+
+    mnRecentFile0.Caption := RecentFiles[0] ;
+    mnRecentFile1.Caption := RecentFiles[1] ;
+    mnRecentFile2.Caption := RecentFiles[2] ;
+    mnRecentFile3.Caption := RecentFiles[3] ;
+
+    // Make empty entries invisible
+    if RecentFiles[0] <> '' then mnRecentFile0.Visible := True
+                            else mnRecentFile0.Visible := False ;
+    if RecentFiles[1] <> '' then mnRecentFile1.Visible := True
+                            else mnRecentFile1.Visible := False ;
+    if RecentFiles[2] <> '' then mnRecentFile2.Visible := True
+                            else mnRecentFile2.Visible := False ;
+    if RecentFiles[3] <> '' then mnRecentFile3.Visible := True
+                            else mnRecentFile3.Visible := False ;
+
+
+    end ;
+
+procedure TMainFrm.mnRecentFile0Click(Sender: TObject);
+// ----------------
+// Open recent file
+// ----------------
+begin
+   if FileExists(RecentFiles[TMenuItem(Sender).Tag]) then begin
+      if FileSaveRequired then SaveToDataFile( SaveFileName ) ;
+      LoadFromDataFile( RecentFiles[TMenuItem(Sender).Tag] ) ;
+      DisplayFromFile ;
+      end ;
+   end;
+
+
+procedure TMainFrm.bTDisplayDoubleClick(Sender: TObject);
+// ------------------------------
+// Double display window duration
+// ------------------------------
+begin
+     edTDisplay.Value := edTDisplay.Value*2.0 ;
+     if LiveMode then DisplayLive( True )
+                 else DisplayFromFile ;
+     end;
+
+procedure TMainFrm.bTDisplayHalfClick(Sender: TObject);
+// ------------------------------
+// Halve display window duration
+// ------------------------------
+begin
+     edTDisplay.Value := edTDisplay.Value*0.5 ;
+     if LiveMode then DisplayLive( True )
+                 else DisplayFromFile ;
+     end;
+
+
+procedure TMainFrm.mnLabInterfaceClick(Sender: TObject);
+//
+// Display laboratory interface dialog box
+//
+begin
+     // Display dialog box
+     LabInterfaceSetupFrm.Top := Top + 50 ;
+     LabInterfaceSetupFrm.Left := Left + 50 ;
+     LabInterfaceSetupFrm.showmodal ;
+     // Save settings
+     if FileHandle >= 0 then SaveHeader( FileHandle ) ;
+     // Update display
+     InitialiseDisplay ;
+     DisplayFromFile ;
+     end ;
+
+
+function TMainFrm.CreateIndexedFileName : String ;
+// ---------------------------------------------------
+// Append an (incremented) index number to end of file
+// ---------------------------------------------------
+var
+     i : Integer ;
+     sDate,FileName : String ;
+begin
+
+     // Create new file name based on date
+
+     DateTimeToString( sDate, 'ddmmyy', Date() ) ;
+     i := 1 ;
+     repeat
+        FileName := SaveDirectory + '\' + sDate + format('_%.3d.cht',[i]) ;
+        Inc(i) ;
+        until not FileExists(FileName) ;
+     Result := FileName ;
+
+     end ;
+
+
+
+procedure TMainFrm.mnSaveFileClick(Sender: TObject);
+// -----------------------------------------
+// Save data to currently selected data file
+// -----------------------------------------
+begin
+    SaveToDataFile( SaveFileName ) ;
+    SaveDirectory := GetDirectory( SaveFileName ) ;
+    //SaveToDataFile( SaveFileName ) ;
+    end;
+
+
+procedure TMainFrm.mnSaveToASCIIDataFileClick(Sender: TObject);
+// ---------------------------
+//  Save data to tab-text file
+//  --------------------------
+begin
+
+     { Present user with standard Save File dialog box }
+     SaveDialog.options := [ofHideReadOnly,ofPathMustExist] ;
+     SaveDialog.FileName := '' ;
+     SaveDialog.DefaultExt := DataFileExtension ;
+     SaveDialog.Filter := ' ASCII Text File (*.txt)|*.txt' ;
+     SaveDialog.Title := 'Save to Tab-Text File' ;
+     SaveDialog.InitialDir := SaveDirectory ;
+     SaveDialog.FileName := ExtractFileName( ChangeFileExt(SaveFileName,'.txt') ) ;
+
+     if SaveDialog.Execute then begin
+        SaveToASCIIDataFile( ChangeFileExt(SaveDialog.FileName,'.txt' )) ;
+        end ;
+
+        end ;
+
+procedure TMainFrm.sbDCOffsetChange(Sender: TObject);
+begin
+    SetDCOffset ;
+    end;
+
+procedure TMainFrm.SetDCOffset ;
+// -------------
+// Set DC Offset
+// -------------
+begin
+    DACV[DCOffsetDACChan] := -(sbDCOffset.Position*DCOffsetScale) ;
+    edDCOffset.Value := -DACV[DCOffsetDACChan] ;
+    SESLabIO.WriteDACS( DACV, 2 ) ;
+    end ;
+
+function TMainFrm.CheckNewDataFileNeeded : Boolean ;
+// ------------------------------------------------------------
+// Check record size and created a new file if size has changed
+// ------------------------------------------------------------
+var
+    NewFileNeeded : Boolean ;
+    i,ch : Integer ;
+    FileName,SequenceNum : String ;
+
+begin
+
+     Result := False ;
+     if NumSamplesInFile = 0 then Exit ;
+
+     // Remove sequence number (if one exists)
+     FileName := SaveFileName ;
+     for i := 1 to 100 do begin
+         SequenceNum := format('.%d.cht',[i]) ;
+         if Pos(SequenceNum, SaveFileName) > 0 then
+            FileName := ANSIReplaceText( SaveFileName, SequenceNum,'.cht') ;
+         end ;
+
+     NewFileNeeded := False ;
+     if ADCNumChannels <> MainFrm.SESLabIO.ADCNumChannels then NewFileNeeded := True ;
+     if (Abs(ADCSamplingInterval - MainFrm.SESLabIO.ADCSamplingInterval)/
+        MainFrm.SESLabIO.ADCSamplingInterval) > 1.0E-3 then NewFileNeeded := True ;
+     for ch := 0 to MainFrm.SESLabIO.ADCNumChannels-1 do begin
+         if ADCChannelName[ch] <> MainFrm.SESLabIO.ADCChannelName[ch] then NewFileNeeded := True ;
+         if ADCChannelUnits[ch] <> MainFrm.SESLabIO.ADCChannelUnits[ch] then NewFileNeeded := True ;
+         if Abs(ADCChannelScale[ch] - MainFrm.SESLabIO.ADCChannelUnitsPerBit[ch])/
+            Abs(MainFrm.SESLabIO.ADCChannelUnitsPerBit[ch]) > 1.0E-3 then NewFileNeeded := True ;
+         end ;
+
+     if NewFileNeeded then begin
+        i := 1 ;
+        repeat
+           SaveFileName := ANSIReplaceText( FileName, '.cht', format('.%d.cht',[i])) ;
+           Inc(i) ;
+           until not FileExists(SaveFileName) ;
+        // Clear temporary file of data
+        ClearTempFile ;
+        end ;
+
+     Caption := 'File: ' + SaveFileName ;
+
+     Result := NewFileNeeded ;
+
+     end ;
+
+
+
+procedure TMainFrm.FormDestroy(Sender: TObject);
+begin
+    FreeMem(ADC) ;
+    end;
+
+procedure TMainFrm.edDCOffsetKeyPress(Sender: TObject; var Key: Char);
+// -----------------------
+// DC offset value changed
+// -----------------------
+begin
+     if Key = #13 then begin
+        sbDCOffset.Position := Round(edDCOffset.Value/DCOffsetScale) ;
+        end ;
+     end;
+
+procedure TMainFrm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+begin
+    if RecordingInProgress then CanClose := False ;
+    end;
+
+end.
