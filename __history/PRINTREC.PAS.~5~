@@ -10,9 +10,9 @@ unit PrintRec;
   4/09/04 ... Channels can be selected for display individually
   24/7/13 ... GetCurrentPrinterName now compiles under V7 and XE2/3
   02.07.18... calibration table resized to display all text
-  03.07.18 ... MainFrm.ADCNumChannels,MainFrm.ADCChannelName,MainFrm.ADCChannelUnits,MainFrm.ADCChannelScale
-               now used instead of MainFrm.SESLabio. equivalents so that correct number of channels, names and units
-               now used. Set to 10% button now works correctly.
+  03.07.18 ... MainFrm.ADCNumChannels now used instead of MainFrm.SESLabio.ADCNumChannels
+               so that correct number of channels displayed
+               Set to 10% button now works correctly.
 
   =================================================================}
 interface

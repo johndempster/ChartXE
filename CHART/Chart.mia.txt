@@ -212,8 +212,8 @@ else
   Comment: Install/Re-Install product
   Create Shortcut $SHORTCUTFOLDER$\Uninstall #TITLE# to $UNINSTALLLINK$
   [OFFLINE CONTENT]
-  Create Shortcut $SHORTCUTFOLDER$\CHART V5.1.2 to $TARGETDIR$\CHART.EXE
-  Create Shortcut $DESKTOPDIR$\CHART V5.1.2 to $TARGETDIR$\CHART.EXE
+  Create Shortcut $SHORTCUTFOLDER$\CHART V5.1.3 to $TARGETDIR$\CHART.EXE
+  Create Shortcut $DESKTOPDIR$\CHART V5.1.3 to $TARGETDIR$\CHART.EXE
   Install Files C:\Users\John\Documents\Embarcadero\Studio\Projects\ChartXE\CHART.EXE to $TARGETDIR$
   Install Files C:\Users\John\Documents\Embarcadero\Studio\Projects\ChartXE\Chart.chm to $TARGETDIR$
   Install Files C:\Users\John\Documents\Embarcadero\Studio\Projects\ChartXE\Chart User Manual.pdf to $TARGETDIR$

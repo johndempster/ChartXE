@@ -212,11 +212,11 @@ else
   Comment: Install/Re-Install product
   Create Shortcut $SHORTCUTFOLDER$\Uninstall #TITLE# to $UNINSTALLLINK$
   [OFFLINE CONTENT]
-  Install Files E:\Delphi XE3 Projects\ChartXE\Chart User Manual.pdf to $TARGETDIR$
-  Install Files E:\Delphi XE3 Projects\ChartXE\CHART.EXE to $TARGETDIR$
-  Create Shortcut $SHORTCUTFOLDER$\CHART V5.1.0 to $TARGETDIR$\CHART.EXE
-  Create Shortcut $DESKTOPDIR$\CHART V5.1.0 to $TARGETDIR$\CHART.EXE
-  Install Files E:\Delphi XE3 Projects\ChartXE\Chart.chm to $TARGETDIR$
+  Create Shortcut $SHORTCUTFOLDER$\CHART V5.1.2 to $TARGETDIR$\CHART.EXE
+  Create Shortcut $DESKTOPDIR$\CHART V5.1.2 to $TARGETDIR$\CHART.EXE
+  Install Files C:\Users\John\Documents\Embarcadero\Studio\Projects\ChartXE\CHART.EXE to $TARGETDIR$
+  Install Files C:\Users\John\Documents\Embarcadero\Studio\Projects\ChartXE\Chart.chm to $TARGETDIR$
+  Install Files C:\Users\John\Documents\Embarcadero\Studio\Projects\ChartXE\Chart User Manual.pdf to $TARGETDIR$
   [DEFINE WEB MEDIA Chart]
   Get Component Chart Selection State into Variable SELECTED
   if Variable SELECTED Equals TRUE

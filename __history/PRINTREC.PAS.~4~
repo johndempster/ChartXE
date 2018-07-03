@@ -10,10 +10,6 @@ unit PrintRec;
   4/09/04 ... Channels can be selected for display individually
   24/7/13 ... GetCurrentPrinterName now compiles under V7 and XE2/3
   02.07.18... calibration table resized to display all text
-  03.07.18 ... MainFrm.ADCNumChannels,MainFrm.ADCChannelName,MainFrm.ADCChannelUnits,MainFrm.ADCChannelScale
-               now used instead of MainFrm.SESLabio. equivalents so that correct number of channels, names and units
-               now used. Set to 10% button now works correctly.
-
   =================================================================}
 interface
 
@@ -137,11 +133,11 @@ begin
      CalibrationBarTable.colwidths[1] := Canvas.TextWidth('XXXXXXXXXXXXXXX') ;
 
      CalibrationBarTable.options := [goEditing,goHorzLine,goVertLine] ;
-     CalibrationBarTable.RowCount := MainFrm.ADCNumChannels + 1 ;
+     CalibrationBarTable.RowCount := MainFrm.SESLabIO.ADCNumChannels + 1 ;
      CalibrationBarTable.cells[0,0] := 'Time ';
 
      { Adjust number of rows to number of enabled channels }
-      CalibrationBarTable.RowCount := MainFrm.ADCNumChannels + 1 ;
+      CalibrationBarTable.RowCount := MainFrm.SESLabIO.ADCNumChannels + 1 ;
 
       { Update text box settings }
       edLeftMargin.Value := MainFrm.Plot.LeftMargin ;
@@ -167,15 +163,15 @@ begin
 
       { Channel calibration bars }
       Row := 1 ;
-      for ch := 0 to MainFrm.ADCNumChannels-1 do begin
+      for ch := 0 to MainFrm.SESLabIO.ADCNumChannels-1 do begin
         if MainFrm.ADCCalibrationBar[ch] <= 0.0 then
-           MainFrm.ADCCalibrationBar[ch] := (MainFrm.ADCChannelYMax[ch]
-                                             - MainFrm.ADCChannelYMax[ch])
-                                             *MainFrm.ADCChannelScale[ch]*0.1 ;
-         CalibrationBarTable.cells[0,Row] := MainFrm.ADCChannelName[ch];
+           MainFrm.ADCCalibrationBar[ch] := (MainFrm.SESLabIO.ADCChannelYMax[ch]
+                                             - MainFrm.SESLabIO.ADCChannelYMax[ch])
+                                             *MainFrm.SESLabIO.ADCChannelUnitsPerBit[ch]*0.1 ;
+         CalibrationBarTable.cells[0,Row] := MainFrm.SESLabIO.ADCChannelName[ch];
          CalibrationBarTable.cells[1,Row] := Format( '%.4g %s',
                                               [MainFrm.ADCCalibrationBar[ch],
-                                               MainFrm.ADCChannelUnits[ch]]);
+                                               MainFrm.SESLabIO.ADCChannelUnits[ch]]);
          Inc(Row) ;
          end ;
 
@@ -224,7 +220,7 @@ procedure TPrintRecFrm.SetShowChannel(
 // Initialise Channel display check box
 // ------------------------------------
 begin
-      if ch < MainFrm.ADCNumChannels then begin
+      if ch < MainFrm.SESLabIO.ADCNumChannels then begin
          ckShowChan.Visible := True ;
          ckShowChan.Checked := True ;
          ckShowChan.Caption := TScopeDisplay(DisplayObj).ChanName[ch] ;
@@ -260,7 +256,7 @@ begin
 
       { Channel calibration bars }
       Row := 1 ;
-      for ch := 0 to MainFrm.ADCNumChannels-1 do begin
+      for ch := 0 to MainFrm.SESLabIO.ADCNumChannels-1 do begin
          MainFrm.ADCCalibrationBar[ch] := ExtractFloat(
                                   CalibrationBarTable.Cells[1,Row],10. ) ;
          Inc(Row) ;
@@ -320,11 +316,11 @@ begin
 
          { Channel calibration bars }
          Row := 1 ;
-         for ch := 0 to MainFrm.ADCNumChannels-1 do begin
+         for ch := 0 to MainFrm.SESLabIO.ADCNumChannels-1 do begin
              Value := ExtractFloat(CalibrationBarTable.Cells[1,Row],10. ) ;
-             CalibrationBarTable.cells[0,Row] := MainFrm.ADCChannelName[ch] ;
+             CalibrationBarTable.cells[0,Row] := MainFrm.SESLabIO.ADCChannelName[ch] ;
              CalibrationBarTable.cells[1,Row] := Format( '%.4g %s',
-                                                 [Value,MainFrm.ADCChannelUnits[ch]]) ;
+                                                 [Value,MainFrm.SESLabIO.ADCChannelUnits[ch]]) ;
              Inc(Row) ;
              end ;
          end ;
@@ -349,14 +345,14 @@ begin
                                         MainFrm.TUnits])  ;
 
       Row := 1 ;
-      for ch := 0 to MainFrm.ADCNumChannels-1 do begin
-           MainFrm.ADCCalibrationBar[ch] := (MainFrm.ADCChannelYMax[ch]
-                                             - MainFrm.ADCChannelYMin[ch])
-                                             *MainFrm.ADCChannelScale[ch]*0.1 ;
-         CalibrationBarTable.cells[0,Row] := MainFrm.ADCChannelName[ch];
+      for ch := 0 to MainFrm.SESLabIO.ADCNumChannels-1 do begin
+           MainFrm.ADCCalibrationBar[ch] := (MainFrm.SESLabIO.ADCChannelYMax[ch]
+                                             - MainFrm.SESLabIO.ADCChannelYMax[ch])
+                                             *MainFrm.SESLabIO.ADCChannelUnitsPerBit[ch]*0.1 ;
+         CalibrationBarTable.cells[0,Row] := MainFrm.SESLabIO.ADCChannelName[ch];
          CalibrationBarTable.cells[1,Row] := Format( '%.4g %s',
                                               [MainFrm.ADCCalibrationBar[ch],
-                                               MainFrm.ADCChannelUnits[ch]]);
+                                               MainFrm.SESLabIO.ADCChannelUnits[ch]]);
 
          Inc(Row) ;
          end ;

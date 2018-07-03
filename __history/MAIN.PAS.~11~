@@ -106,7 +106,22 @@
 //                  in laboratory interface
 // 23.07.13 V5.0.4  Warning message no longer produced when unsupported A/D input mode changed (NIDAQMXUnit.pas)
 //                  Software timed stimulus output added for USB-6008/8 devices with time resolution of 50ms
-
+// 26.08.13 V5.0.5  New file now requested when Record clicked ONLY when CED 1902 gain changed.
+// 18.09.13 V5.0.6  .n.cht sequence number now autmatically added to file name when channel scaling changed.
+//                  Channel scaling can now be changed without user opening a new file.
+//                  DC offset facility on AO1 added
+//                  ADCCalibrationValue now stored in settings file not .CHT file
+//                  Units can now be set in calibration wizard
+//                  Calibration value now retained in calibration wizard
+// 23.09.13 V5.0.7  Settings now loaded again after lab. interface type set to ensure
+//                  A/D voltage range set correctly. ADCMaxValue/ADCMinValue set to 15 bit range when record pressed
+//                  CheckNewDataFileRequired now checks sampling interval
+// 03.12.13 V5.0.8  Stimulator On and Off voltages can now be set
+// 10.12.13 V5.0.9  Data files can now only be saved on system disk.
+// 24.06.15 V5.1.0  Ported from Delphi & code.
+// 18.12.15 V5.1.1  Input channels can now be remapped
+// 02.07.18 V5.1.2 Calibration table resized to display all text
+// 03.07.18 V5.1.3 Print & Copy Image: No. of channels in file now read correctly. Set to 10% calibration bars now works
 unit Main;
 
 interface
@@ -116,12 +131,12 @@ uses
   Forms, Dialogs, StdCtrls, ExtCtrls, Spin, Shared, Menus, Grids,
   StimSet,About, ClipBrd, Table, Calib,
   use1902, ComCtrls, ValEdit, SESLabIO, mmsystem, ValidatedEdit,
-  ScopeDisplay, maths, math, DateUtils, strutils, windows,shellapi ;
+  ScopeDisplay, math, DateUtils, strutils, windows,shellapi, vcl.htmlhelpviewer ;
 
 const
 
-     StimDACChannel = 0 ;
-     SyncDACChannel = 1 ;
+     StimDACChan = 0 ;
+     DCOffsetDACChan = 1 ;
      NumDACChannels = 2 ;
      MaxChannels = 8 ;
      ChannelLimit = MaxChannels-1 ;
@@ -183,7 +198,8 @@ type
           PulseFrequency : Single ;
           PulsesPerGroup : LongInt ;
           PulseWidth : Single ;
-          PulseAmplitude : Single ;
+          PulseVOn : Single ;
+          PulseVOff : Single ;
           RepeatPeriodmsec : LongInt ;
           TimeForNextGroup : LongInt ;
           NumDACPoints : LongInt ;
@@ -361,6 +377,9 @@ type
     mnSaveFile: TMenuItem;
     SESLabIO: TSESLabIO;
     mnSaveToASCIIDataFile: TMenuItem;
+    DCOffsetGrp: TGroupBox;
+    sbDCOffset: TScrollBar;
+    edDCOffset: TValidatedEdit;
     procedure bRecordClick(Sender: TObject);
     procedure TimerTimer(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -419,6 +438,10 @@ type
     procedure mnLabInterfaceClick(Sender: TObject);
     procedure mnSaveFileClick(Sender: TObject);
     procedure mnSaveToASCIIDataFileClick(Sender: TObject);
+    procedure sbDCOffsetChange(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure edDCOffsetKeyPress(Sender: TObject; var Key: Char);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 
 
   private
@@ -427,11 +450,15 @@ type
   LiveMode : Boolean ;               // Live display mode flag
   TimerInProgress :Boolean ;         // Timer processing in progress
 
-  ADC : PSmallIntArray ;        // A/D data buffer pointer
+  ADC : PSmallIntArray ;        // A/D data buffer pointer (scaled to 16 bit range)
+  ADCRaw : PSmallIntArray ;     // A/D raw )unscaled) data buffer pointer
+  ADCScaleTo16Bit : Integer ;   // Scaled A/D data to 16 bit range
   DAC : PSmallIntArray ;        // D/A data buffer pointer
   DACPointer : Integer ;        // D/A update pointer (non-waveform update)
   NumDACPoints : Integer ;      // No. of points in DAC
   DACUpdateInterval : single ;  // D/A update interval (s)
+  DACV : Array[0..NumDACChannels-1] of Single ;
+  DCOffsetScale : Single ;      // DC offset slider -> V scale factor
 
   DisplayBuf : TSmallIntArray ; // Data display buffer pointer
   WriteBufs : TWriteBufs ;      // Circular A/D data buffer control record
@@ -493,6 +520,8 @@ type
     ADCChannelYMin : Array[0..ChannelLimit] of Single ;
     ADCChannelYMax : Array[0..ChannelLimit] of Single ;
 
+    NewFileNeeded :Boolean ;  // TRUE = Calibration changed, new file needed when recording
+
     Stimulator : TStimulator ;          // Stimulator control record
 
    RMS : TRMS ;
@@ -534,9 +563,6 @@ type
    FileHandle : integer ;         // Handle to open (-1 = no file)
    NumBytesInHeader : LongInt ;   // No. of bytes in file header
    NumSamplesInFile : LongInt ;   // No. of A/D samples in file
-   //DataStart : LongInt ;
- //  dt : Single ;                  // Inter-scan interval (scan=channel series)
-   //ADCVoltageRange : Array[0..ChannelLimit] of Single ;
    IdentLine : string ;           // File identification text
 
    RMSInUse : Boolean ;
@@ -563,6 +589,8 @@ type
 
    procedure AddToRecentFilesList( FileName : String ) ;
    function GetDirectory( FileName : String ) : String ;
+   procedure SetDCOffset ;
+   function CheckNewDataFileNeeded : Boolean ;
   end;
 
 var
@@ -587,7 +615,12 @@ var
    Buf : PChar ;
 begin
 
-    VersionNum := 'V5.0.4' ;
+    Top := 20 ;
+    Left := 20 ;
+    Width := Screen.Width - Left - 20 ;
+    Height := Screen.Height - Top - 50 ;
+
+    VersionNum := 'V5.1.3' ;
     ProgName := 'Chart ' + VersionNum ;
     Caption := ProgName ;
 
@@ -624,9 +657,9 @@ begin
     // Note. Help file copied to local disk to avoid block on running .CHM files from network drives)
     Application.HelpFile := ProgDirectory + 'chart.chm' ;
     LocalHelpFile := ChartDirectory + '\chart.chm' ;
-    if not FileExists(LocalHelpFile) then begin
-       CopyFile( PANSICHar(Application.HelpFile),PANSICHar(LocalHelpFile),  false ) ;
-       end ;
+ //   if not FileExists(LocalHelpFile) then begin
+       CopyFile( PCHar(Application.HelpFile),PCHar(LocalHelpFile),  false ) ;
+ //      end ;
     if FileExists(LocalHelpFile) then Application.HelpFile := LocalHelpFile ;
 
     // Program initialisation file Chart.ini
@@ -654,7 +687,8 @@ begin
      Stimulator.GroupInterval := 1. ;
      Stimulator.PulsesPerGroup := 1 ;
      Stimulator.PulseWidth := 0.002 ;
-     Stimulator.PulseAmplitude := 5.0 ;
+     Stimulator.PulseVOn := 5.0 ;
+     Stimulator.PulseVOff := 0.0 ;
      Stimulator.Running := False ;
 
      ADCMaxValue := 32767 ;
@@ -688,6 +722,8 @@ begin
      rbTUnitsSeconds.Checked := not rbTUnitsMinutes.Checked ;
 
      edStimStatus.text := ' OFF ' ;
+     for i := 0 to High(DACV) do DACV[i] := 0.0 ;
+     DACV[StimDACChan] := Stimulator.PulseVOff ;
 
      { Clear A/D voltage/gain settings table }
 
@@ -734,6 +770,9 @@ begin
      BackupInterval := 60.0 ;         // Backup interval (s)
      BAKFileName := '' ;
 
+     // Allocated A/D buffer
+     GetMem( ADC, ADCBufferSize*NumWriteBufsMax*MaxChannels ) ;
+
      // Clear recent files list
      for i := 0 to High(RecentFiles) do RecentFiles[i] := '' ;
 
@@ -779,7 +818,14 @@ begin
           RecordingDisabled := True ;
           StatusBar.SimpleText := 'WARNING! Laboratory interface hardware not available. Recording Disabled!' ;
           end ;
-        end
+       // Read settings again to ensure A/D voltage range settings are accepted
+       if INIFileHandle >= 0 then begin
+          FileClose(INIFileHandle ) ;
+          LoadSettingsFile( IniFileName, True ) ;
+          INIFileHandle := FileOpen( IniFileName, fmOpenWrite ) ;
+          end ;
+
+       end
     else begin
        SESLABIO.LabInterfaceType := NoInterface16 ;
        end ;
@@ -790,7 +836,7 @@ begin
 
     SESLabIO.DisableDMA_LabPC ;
     SESLabIO.DoNotSaveSettings := True ; // Do not save settings in XML file
-    SESLabIO.GetADCBuffer( ADC ) ;
+    SESLabIO.GetADCBuffer( ADCRaw ) ;
     SESLabIO.GetDACBuffer( DAC ) ;
     EmptyFlag := SESLabIO.ADCEmptyFlag ;
     if SESLabIO.ADCInputMode <> MainFrm.ADCInputMode then SESLabIO.ADCInputMode := MainFrm.ADCInputMode ;
@@ -800,10 +846,21 @@ begin
        ANSIContainsText(SESLabIO.LabInterfaceModel,'6009') then begin
        DACWaveformSupported := False ;
        DACUpdateInterval := Timer.Interval*1E-3 ;
+       sbDCOffset.Max := 0 ;
        end
     else begin
        DACWaveformSupported := True ;
        DACUpdateInterval := 0.002 ;
+       sbDCOffset.Max := 32767 ;
+       end ;
+    DCOffsetScale := SESLabIO.DACVoltageRange[0]/Max(sbDCOffset.Max,-sbDCOffset.Min) ;
+    sbDCOffset.Position := Round(edDCOffset.Value/DCOffsetScale) ;
+
+    // Update DACs
+    if not RecordingDisabled then begin
+       DACV[StimDACChan] := Stimulator.PulseVOff ;
+       DACV[DCOffsetDACChan] := -(sbDCOffset.Position*DCOffsetScale) ;
+       SESLABIO.WriteDACS( DACV, 2 ) ;
        end ;
 
     // Disable options not available when recording disabled
@@ -939,6 +996,11 @@ var
       ch : Integer ;
 begin
 
+      if ExtractFileDrive(ChartDirectory) <> ExtractFileDrive(SaveFileName) then begin
+        ShowMessage('Unable to record to ' + SaveFileName + '. Open a new data file in a folder on drive ' + ExtractFileDrive(ChartDirectory));
+        exit ;
+        end ;
+
       SumProcTime := 0 ;
       nProcTime := 0 ;
 
@@ -952,22 +1014,13 @@ begin
          Exit
          end ;
 
-      if (NumSamplesInFile > 0) and
-         (ADCMaxValue <> SESLabIO.ADCMaxValue) then begin
-         ShowMessage( ' Laboratory Interface changed: New data file needed!' ) ;
-         Exit ;
-        end ;
-
       // Send new values to CED 1902
       if CED1902.InUse then begin
          CED1902.UpdateAmplifier ;
-         if (NumSamplesInFile > 0) and
-            (SESLabIO.ADCChannelGain[0] <> CED1902.GainValue) then begin
-            ShowMessage( 'CED 1902 gain changed: New data file needed!' ) ;
-            Exit ;
-           end ;
          SESLabIO.ADCChannelGain[0] := CED1902.GainValue ;
          end ;
+
+      CheckNewDataFileNeeded ;
 
       // Enable/disable digital LP filtering
       if DigitalFilter.Factor = 1.0 then DigitalFilter.InUse := False
@@ -982,25 +1035,21 @@ begin
      // Copy channel settings to display
 
      {Set channel information }
-     ADCMaxValue := SESLabIO.ADCMaxValue ;
-     ADCMinValue := SESLabIO.ADCMinValue ;
+     ADCMaxValue := 32767 ;  // Set A/D max value to 16 bit
+     ADCMinValue := -32768 ;
+     ADCScaleTo16Bit := (ADCMaxValue+1) div SESLabIO.ADCMaxValue ;
 
-     SESLabIO.ADCSamplingInterval := ADCSamplingInterval ;
-
-     SESLabIO.ADCNumChannels := ADCNumChannels ;
+     ADCSamplingInterval := SESLabIO.ADCSamplingInterval ;
      ADCNumChannels := SESLabIO.ADCNumChannels ;
 
-     ADCSamplingInterval :=  SESLabIO.ADCSamplingInterval ;
-     for ch := 0 to ADCNumChannels-1 do begin
+     for ch := 0 to SESLabIO.ADCNumChannels-1 do begin
 
-         SESLabIO.ADCChannelVoltageRange[ch] := ADCChannelVoltageRange[ch] ;
          ADCChannelVoltageRange[ch] := SESLabIO.ADCChannelVoltageRange[ch] ;
 
-         SESLabIO.ADCChannelUnits[ch]:= ADCChannelUnits[ch] ;
-         SESLabIO.ADCChannelName[ch] := ADCChannelName[ch] ;
-         SESLabIO.ADCChannelGain[ch] := ADCChannelGain[ch] ;
-
-         SESLabIO.ADCChannelVoltsPerUnit[ch] := ADCChannelVoltsPerUnit[ch] ;
+         ADCChannelUnits[ch] := SESLabIO.ADCChannelUnits[ch] ;
+         ADCChannelName[ch] := SESLabIO.ADCChannelName[ch] ;
+         ADCChannelGain[ch] := SESLabIO.ADCChannelGain[ch] ;
+         ADCChannelVoltsPerUnit[ch] := SESLabIO.ADCChannelVoltsPerUnit[ch] ;
          ADCChannelScale[ch] := SESLabIO.ADCChannelUnitsPerBit[ch] ;
          ADCChannelOffset[ch] := SESLabIO.ADCChannelOffset[ch] ;
 
@@ -1009,6 +1058,7 @@ begin
          scDisplay.ChanName[ch] := ADCChannelName[ch] ;
          scDisplay.ChanZero[ch] := ADCChannelZero[ch] ;
          scDisplay.ChanVisible[ch] := True ;
+
          end ;
 
       // Start A/D sampling
@@ -1163,7 +1213,6 @@ var
    NumBytes : Integer ;
    iTicks : Integer ;
    iScan : Integer ;
-   V : Single ;
 begin
 
    // Exit if previous timer processes still in active
@@ -1191,8 +1240,8 @@ begin
 
       // Find latest A/D samples
       nCount := 0 ;
-      While ((ADC^[WriteBufs.EmptyPointer] <> EmptyFlag) or
-            (ADC^[WriteBufs.EmptyPointer+1] <> -EmptyFlag)) and
+      While ((ADCRaw^[WriteBufs.EmptyPointer] <> EmptyFlag) or
+            (ADCRaw^[WriteBufs.EmptyPointer+1] <> -EmptyFlag)) and
             (nCount < WriteBufs.NumSamplesPerBuf) do begin
             WriteBufs.EmptyPointer := WriteBufs.EmptyPointer + SESLabIO.ADCNumChannels*2 ;
             if WriteBufs.EmptyPointer >= WriteBufs.NumSamples then
@@ -1203,6 +1252,14 @@ begin
       WriteBufs.LatestScan := WriteBufs.EmptyPointer - SESLabIO.ADCNumChannels*4 ;
       if WriteBufs.LatestScan < 0 then
          WriteBufs.LatestScan := WriteBufs.LatestScan + WriteBufs.NumSamples ;
+
+      // Scale data to 16 bit range and transfer to ADC
+      iScan := WriteBufs.OldestScan ;
+      while iScan <> WriteBufs.LatestScan do begin
+          ADC^[iScan] := ADCRaw^[iScan]*ADCScaleTo16Bit ;
+          Inc(iScan) ;
+          if iScan >= WriteBufs.NumSamples then iScan := iScan - WriteBufs.NumSamples ;
+          end ;
 
       // Compute heart rate channel
       if HR.InUse then begin
@@ -1245,9 +1302,9 @@ begin
          i := WriteBufs.BufStart[WriteBufs.WriteBuf] ;
          iEnd := WriteBufs.BufEnd[WriteBufs.WriteBuf] ;
          while i <= iEnd do begin
-               ADC^[i] := EmptyFlag ;
+               ADCRaw^[i] := EmptyFlag ;
                Inc(i) ;
-               ADC^[i] := -EmptyFlag ;
+               ADCRaw^[i] := -EmptyFlag ;
                Inc(i) ;
                end ;
          WriteBufs.WriteBuf := WriteBufs.WriteBuf + 1 ;
@@ -1281,8 +1338,8 @@ begin
 
       // Update D/A output if stimulus enabled and fast waveform update not supported.
       if Stimulator.Running and (not DACWaveformSupported) then begin
-         V := (DAC^[DACPointer]/SESLabIO.DACMaxValue)*SESLabIO.DACVoltageRange[0] ;
-         SESLabIO.WriteDACs( V, 1 ) ;
+         DACV[StimDACChan] := (DAC^[DACPointer]/SESLabIO.DACMaxValue)*SESLabIO.DACVoltageRange[0] ;
+         SESLabIO.WriteDACs( DACV, 2 ) ;
          Inc(DACPointer) ;
          if DACPointer >= NumDACPoints then DACPointer := 0 ;
          end ;
@@ -1350,7 +1407,7 @@ const
      NumBytesPerBuf = 8192 ;
 var
      Buf : Array[0..NumBytesPerBuf-1] of Byte ;
-     NumBytes : Integer ;
+     //NumBytes : Integer ;
      ToFileHandle : Integer ;
      NumBytesRead : Integer ;            
 begin
@@ -1378,7 +1435,7 @@ begin
         Exit ;
         end ;
 
-     NumBytes := FileSeek( FileHandle, 0, 2 ) ;
+     //FileSeek( FileHandle, 0, 2 ) ;
 
      // Copy data file
      FileSeek( FileHandle, 0, 0 ) ;
@@ -1395,6 +1452,8 @@ begin
      Caption := 'File: ' + SaveFileName ;
 
      AddToRecentFilesList( SaveFileName ) ;
+
+     StatusBar.SimpleText := 'Saved to ' + ToFileName ;
 
      end ;
 
@@ -1457,7 +1516,7 @@ const
      NumBytesPerBuf = 8192 ;
 var
      Buf : Array[0..NumBytesPerBuf-1] of Byte ; // I/O buffer
-     NumBytes : Integer ;                    // Current BAK file size
+     //NumBytes : Integer ;                    // Current BAK file size
      FromFileHandle : Integer ;                  // Backup file handle
      NumBytesRead : Integer ;                   // No. bytes read from CHT file
 begin
@@ -1486,7 +1545,7 @@ begin
         Exit ;
         end ;
 
-     NumBytes := FileSeek( FromFileHandle, 0, 2 ) ;
+//     NumBytes := FileSeek( FromFileHandle, 0, 2 ) ;
 
      // Copy data file
      FileSeek( FileHandle, 0, 0 ) ;
@@ -1556,13 +1615,12 @@ begin
 
      ExtTrigger := False ;
 
-
      { Start A/D converter sampling }
      if SESLabIO.ADCActive then SESLabIO.ADCStop ;
 
      // No. of A/D channels per scan
-     SESLabIO.ADCNumChannels := SESLabIO.ADCNumChannels ;
      SESLabIO.ADCNumSamples := WriteBufs.NumScans ;
+     ADCScaleTo16Bit := (ADCMaxValue+1) div SESLabIO.ADCMaxValue ;
 
      // Set individual channel voltage ranges
      // Ensure Upper/lower limits of A/D and D/A ranges
@@ -1919,7 +1977,7 @@ procedure TMainFrm.StartStimulator ;
 // --------------------
 var
    i,j,j0,jEnd,nPulseWidth,nPulseInterval : LongInt ;
-   DACValue : Integer ;  // D/A output integer value
+   DACVOn,DACVOff : Integer ;  // D/A output integer value
 begin
 
       Stimulator.RepeatPeriodmsec := Round( Stimulator.GroupInterval*1000. ) ;
@@ -1938,14 +1996,15 @@ begin
       nPulseInterval := Max(Trunc(1./(DACUpdateInterval*Stimulator.PulseFrequency)),1);
 
       { Create stimulus pulse(s) }
-      for i := 0 to High(DAC^) do DAC^[i] := 0 ;
+      DACVOn := Round((Stimulator.PulseVOn*SESLabIO.DACMaxValue)/SESLabIO.DACVoltageRange[0] ) ;
+      DACVOff := Round((Stimulator.PulseVOff*SESLabIO.DACMaxValue)/SESLabIO.DACVoltageRange[0] ) ;
+
+      for i := 0 to High(DAC^) do DAC^[i] := DACVOff ;
       jEnd := High(DAC^)-1 ;
       j0 := 1 ;
-      DACValue := Round( (Stimulator.PulseAmplitude*SESLabIO.DACMaxValue) /
-                          SESLabIO.DACVoltageRange[0] ) ;
       for i := 1 to Stimulator.PulsesPerGroup do begin
           for j := j0 to j0 + nPulseWidth - 1 do
-              if j < jEnd then DAC^[j] := DACValue ;
+              if j < jEnd then DAC^[j] := DACVOn ;
           j0 := j0 + nPulseInterval ;
           end ;
 
@@ -1969,7 +2028,7 @@ begin
 
 procedure TMainFrm.StopStimulator ;
 // --------------------
-//  Turn stimulator On
+//  Turn stimulator Off
 // --------------------
 begin
      // Stop stimulus pulse interval timer
@@ -1977,7 +2036,8 @@ begin
 
      // Stop D/A output
      if SESLABIO.DacActive then SESLABIO.DACStop ;
-     SESLABIO.WriteDACS( [0.0,0.0], 2 ) ;
+     DACV[StimDACChan] := Stimulator.PulseVOff ;
+     SESLABIO.WriteDACS( DACV, 2 ) ;
 
      Stimulator.Running := False ;
      edStimStatus.text := 'OFF' ;
@@ -1992,12 +2052,12 @@ procedure TMainFrm.SaveHeader(
   Save data to file header
   ------------------------}
 var
-   Header : array[1..HeaderSize] of char ;
+   Header : array[1..HeaderSize] of ANSIchar ;
    i,ch : LongInt ;
 begin
-     { Initialise empty header buffer with zero bytes }
-     for i := 1 to sizeof(Header) do Header[i] := chr(0) ;
 
+     { Initialise empty header buffer with zero bytes }
+     for i := 1 to sizeof(Header) do Header[i] := #0 ;
 
      AppendFloat( Header, 'VER=',7.0);
 
@@ -2038,7 +2098,7 @@ begin
          // Offset for A/D sample within multi-channel scan
          AppendInt( Header, format('YO%d=',[ch]), ADCChannelOffset[ch] ) ;
          AppendFloat( Header, format('YB%d=',[ch]), ADCCalibrationBar[ch] ) ;
-         AppendFloat( Header, format('YV%d=',[ch]), ADCCalibrationValue[ch] ) ;
+         //AppendFloat( Header, format('YV%d=',[ch]), ADCCalibrationValue[ch] ) ;
          end ;
 
      { Save RMS & HR processor setting }
@@ -2064,7 +2124,6 @@ begin
      if FileWrite( FHandle, Header, Sizeof(Header) ) <> Sizeof(Header) then
         ShowMessage( ' File Header Write - Failed ' ) ;
 
-
      end ;
 
 
@@ -2076,7 +2135,7 @@ procedure TMainFrm.GetHeader(
   decode parameter list, and put into FileHeader record
   -----------------------------------------------------}
 var
-   Header : array[1..HeaderSize] of char ;
+   Header : array[1..HeaderSize] of ANSIchar ;
    i : LongInt ;
    ch : Integer ;
    NumMarkers : Integer ;
@@ -2143,7 +2202,7 @@ begin
               ReadFloat( Header, format('YB%d=',[ch]), ADCCalibrationBar[ch] ) ;
 
               // Calibration wizard value
-              ReadFloat( Header, format('YV%d=',[ch]), ADCCalibrationValue[ch] ) ;
+              //ReadFloat( Header, format('YV%d=',[ch]), ADCCalibrationValue[ch] ) ;
 
               end ;
 
@@ -2212,7 +2271,7 @@ procedure TMainFrm.FormClose(Sender: TObject; var Action: TCloseAction);
   ------------------------------------}
 begin
 
-        if MessageDlg('Terminate Intracept-Chart?', mtConfirmation,
+        if MessageDlg('Terminate Chart?', mtConfirmation,
            [mbYes,mbNo],0) = mrYes then begin
 
            // Save settings to INI file
@@ -2223,7 +2282,6 @@ begin
               // Save settings to it
               SaveSettingsFile( INIFileName, True ) ;
               end ;
-
 
            // Save existing data file (if required)
            if FileSaveRequired then SaveToDataFile( SaveFileName ) ;
@@ -2237,7 +2295,8 @@ begin
            if not RecordingDisabled then begin
               // Stop D/A sub-system
               if SESLABIO.DACActive then SESLABIO.DACStop ;
-              SESLABIO.WriteDACS( [0.0,0.0], 2 ) ;
+              DACV[StimDACChan] := Stimulator.PulseVOff ;
+              SESLABIO.WriteDACS( DACV, 2 ) ;
 
               // Stop stimulus pulse interval timer
               if SESLABIO.TimerActive then SESLABIO.StopTimer ;
@@ -2287,6 +2346,10 @@ begin
    SaveDialog.Title := 'New Data File' ;
    SaveDialog.InitialDir := SaveDirectory ;
    if SaveDialog.Execute then begin
+     if ExtractFileDrive(ChartDirectory) <> ExtractFileDrive(SaveDialog.FileName) then begin
+        ShowMessage('Unable to create file! Files can only be created in folders on drive ' + ExtractFileDrive(ChartDirectory));
+        exit ;
+        end ;
      SaveFileName := SaveDialog.FileName ;
      Caption := 'File: ' + SaveFileName ;
      ClearTempFile ;
@@ -2406,11 +2469,13 @@ procedure TMainFrm.LoadSettingsFile(
   Read Initialization file to get initial program settings,
   ---------------------------------------------------------}
 var
-   Header : array[1..HeaderSize] of char ;
+   Header : array[1..HeaderSize] of ANSIchar ;
    ch,i : LongInt ;
    IniFileHandle : LongInt ;
    BoolValue : Boolean ;
    fValue : Single ;
+   iValue : Integer ;
+   sValue : string ;
 begin
 
      if not FileExists( IniFileName ) then Exit ;
@@ -2481,8 +2546,10 @@ begin
         if Stimulator.PulseFrequency <= 0.0 then Stimulator.PulseFrequency := 1.0 ;
         ReadInt( Header, 'STPPG=', Stimulator.PulsesPerGroup ) ;
         ReadFloat( Header, 'STPWI=', Stimulator.PulseWidth ) ;
-        if Stimulator.PulseWidth <= 0.0 then Stimulator.PulseWidth := 0.1 ; 
-        ReadFloat( Header, 'STPAM=', Stimulator.PulseAmplitude ) ;
+        if Stimulator.PulseWidth <= 0.0 then Stimulator.PulseWidth := 0.1 ;
+        ReadFloat( Header, 'STPAM=', Stimulator.PulseVOn ) ;
+        ReadFloat( Header, 'STVON=', Stimulator.PulseVOn ) ;
+        ReadFloat( Header, 'STVOFF=', Stimulator.PulseVOff ) ;
 
         // Display calibration grid setting
         ReadLogical( Header, 'DISPGRID=', BoolValue ) ;
@@ -2504,22 +2571,44 @@ begin
         ReadInt( Header, 'MFHEIGHT=', Plot.MetafileHeight ) ;
 
         // Channel settings
-        ADCNumChannels := 1 ;
-        ReadInt( Header, 'NC=', ADCNumChannels ) ;
+        ReadInt( Header, 'NC=', iValue ) ;
+        SESLabIO.ADCNumChannels := Max(iValue,1) ;
+
         ADCSamplingInterval := 0.01 ;
-        ReadFloat( Header, 'DT=', ADCSamplingInterval ) ;
-        for ch := 0 to ADCNumChannels-1 do begin
-            ReadFloat( Header, format('AD%d=',[ch]), ADCChannelVoltageRange[ch] ) ;
-            if ADCChannelVoltageRange[ch] <= 0.0 then ADCChannelVoltageRange[ch] := 10.0 ;
-            ReadString( Header, format('YU%d=',[ch]), ADCChannelUnits[ch] ) ;
-            if ADCChannelUnits[ch] = '' then ADCChannelName[ch] := 'V' ;
-            ReadString( Header, format('YN%d=',[ch]), ADCChannelName[ch] ) ;
-            if ADCChannelName[ch] = '' then ADCChannelName[ch] := format('Ch.%d',[ch]);
-            ReadFloat(Header,format('YG%d=',[ch]),ADCChannelGain[ch]) ;
-            if ADCChannelGain[ch] <= 0.0 then ADCChannelGain[ch] := 1.0 ;
-            ReadFloat( Header, format('YC%d=',[ch]), ADCChannelVoltsPerUnit[ch] ) ;
-            if ADCChannelVoltsPerUnit[ch] = 0.0 then ADCChannelVoltsPerUnit[ch] := 1.0 ;
-            ReadInt( Header, format('YZ%d=',[ch]), ADCChannelZero[ch] ) ;
+        ReadFloat( Header, 'DT=', fValue ) ;
+        SESLabIO.ADCSamplingInterval :=  fValue ;
+
+        for ch := 0 to SESLabIO.ADCNumChannels-1 do begin
+
+            ReadFloat( Header, format('AD%d=',[ch]), fValue ) ;
+            if fValue <= 0.0 then fValue := 10.0 ;
+            SESLabIO.ADCChannelVoltageRange[ch] := fValue ;
+
+            iValue := ch ;
+            ReadInt( Header, format('AI%d=',[ch]), iValue ) ;
+            SESLabIO.ADCChannelInputNumber[ch] := iValue ;
+
+            ReadString( Header, format('YU%d=',[ch]), sValue ) ;
+            if sValue = '' then sValue := 'V' ;
+            SESLabIO.ADCChannelUnits[ch] := sValue ;
+
+            ReadString( Header, format('YN%d=',[ch]), sValue ) ;
+            if sValue = '' then sValue := format('Ch.%d',[ch]);
+            SESLabIO.ADCChannelName[ch] := sValue ;
+
+            ReadFloat(Header,format('YG%d=',[ch]), fValue ) ;
+            if fValue <= 0.0 then fValue := 1.0 ;
+            SESLabIO.ADCChannelGain[ch] := fValue ;
+
+            ReadFloat( Header, format('YC%d=',[ch]), fValue ) ;
+            if fValue = 0.0 then fValue := 1.0 ;
+            SESLabIO.ADCChannelVoltsPerUnit[ch] := fValue ;
+
+            ReadInt( Header, format('YZ%d=',[ch]), iValue ) ;
+            ADCChannelZero[ch] := iValue ;
+
+            ReadFloat( Header, format('YV%d=',[ch]), ADCCalibrationValue[ch] ) ;
+
             end ;
 
         // Digital filter
@@ -2531,17 +2620,21 @@ begin
         DigitalFilter.Factor := fValue ;
 
         // HR and RMS settings
-          ReadInt( Header, 'FCRMS=', RMS.FromChannel ) ;
-          ReadInt( Header, 'TCRMS=', RMS.toChannel ) ;
-          ReadInt( Header, 'AVRMS=', RMS.NumAverage ) ;
-          ReadLogical( Header, 'IURMS=', RMS.InUse ) ;
+        ReadInt( Header, 'FCRMS=', RMS.FromChannel ) ;
+        ReadInt( Header, 'TCRMS=', RMS.toChannel ) ;
+        ReadInt( Header, 'AVRMS=', RMS.NumAverage ) ;
+        ReadLogical( Header, 'IURMS=', RMS.InUse ) ;
 
-          ReadInt( Header, 'FCHR=', HR.FromChannel ) ;
-          ReadInt( Header, 'TCHR=', HR.toChannel ) ;
-          ReadFloat( Header, 'THHR=', HR.PercentageThreshold ) ;
-          ReadFloat( Header, 'MAXHR=', HR.MaxScale ) ;
-          ReadLogical( Header, 'IUHR=', HR.InUse ) ;
-          ReadLogical( Header, 'DSPHR=', HR.DisplayHR ) ;
+        ReadInt( Header, 'FCHR=', HR.FromChannel ) ;
+        ReadInt( Header, 'TCHR=', HR.toChannel ) ;
+        ReadFloat( Header, 'THHR=', HR.PercentageThreshold ) ;
+        ReadFloat( Header, 'MAXHR=', HR.MaxScale ) ;
+        ReadLogical( Header, 'IUHR=', HR.InUse ) ;
+        ReadLogical( Header, 'DSPHR=', HR.DisplayHR ) ;
+
+        ReadFloat( Header, 'DCO=', fValue ) ;
+        edDCOffset.Value := fValue ;
+//        sbDCOffset.Position := Round( edDCOffset.Value/DCOffsetScale ) ;
 
         // Recent files list
         for i := 0 to High(RecentFiles) do begin
@@ -2563,7 +2656,7 @@ procedure TMainFrm.SaveSettingsFile(
   Save program settings to Initialization file
   --------------------------------------------}
 var
-   Header : array[1..HeaderSize] of char ;
+   Header : array[1..HeaderSize] of ANSIchar ;
    i,ch : Integer ;
    IniFileHandle : Integer ;
 begin
@@ -2606,7 +2699,9 @@ begin
      AppendFloat( Header, 'STFR=', Stimulator.PulseFrequency ) ;
      AppendInt( Header, 'STPPG=', Stimulator.PulsesPerGroup ) ;
      AppendFloat( Header, 'STPWI=', Stimulator.PulseWidth ) ;
-     AppendFloat( Header, 'STPAM=', Stimulator.PulseAmplitude ) ;
+     AppendFloat( Header, 'STPAM=', Stimulator.PulseVOn ) ;
+     AppendFloat( Header, 'STVON=', Stimulator.PulseVOn ) ;
+     AppendFloat( Header, 'STVOFF=', Stimulator.PulseVOff ) ;
 
      // Display calibration grid setting
      AppendLogical( Header, 'DISPGRID=', mnShowGrid.Checked ) ;
@@ -2616,15 +2711,17 @@ begin
      AppendFloat( Header, 'BAKINT=', BackupInterval ) ;
 
      // Channel settings
-     AppendInt( Header, 'NC=', ADCNumChannels ) ;
-     AppendFloat( Header, 'DT=', ADCSamplingInterval ) ;
+     AppendInt( Header, 'NC=', SESLabIO.ADCNumChannels ) ;
+     AppendFloat( Header, 'DT=', SESLabIO.ADCSamplingInterval ) ;
      for ch := 0 to ChannelLimit do begin
-         AppendFloat( Header, format('AD%d=',[ch]), ADCChannelVoltageRange[ch] ) ;
-         AppendString( Header, format('YU%d=',[ch]), ADCChannelUnits[ch] ) ;
-         AppendString( Header, format('YN%d=',[ch]), ADCChannelName[ch] ) ;
-         AppendFloat(Header,format('YG%d=',[ch]), ADCChannelGain[ch]) ;
-         AppendFloat( Header, format('YC%d=',[ch]), ADCChannelVoltsPerUnit[ch] ) ;
-         AppendInt( Header, format('YZ%d=',[ch]), ADCChannelZero[ch] ) ;
+         AppendFloat( Header, format('AD%d=',[ch]), SESLabIO.ADCChannelVoltageRange[ch] ) ;
+         AppendInt( Header, format('AI%d=',[ch]), SESLabIO.ADCChannelInputNumber[ch] ) ;
+         AppendString( Header, format('YU%d=',[ch]), SESLabIO.ADCChannelUnits[ch] ) ;
+         AppendString( Header, format('YN%d=',[ch]), SESLabIO.ADCChannelName[ch] ) ;
+         AppendFloat(Header,format('YG%d=',[ch]), SESLabIO.ADCChannelGain[ch]) ;
+         AppendFloat( Header, format('YC%d=',[ch]), SESLabIO.ADCChannelVoltsPerUnit[ch] ) ;
+         AppendInt( Header, format('YZ%d=',[ch]), SESLabIO.ADCChannelZero[ch] ) ;
+         AppendFloat( Header, format('YV%d=',[ch]), ADCCalibrationValue[ch] ) ;
          end ;
 
      // Page/metafile settings
@@ -2654,6 +2751,8 @@ begin
           AppendFloat( Header, 'MAXHR=', HR.MaxScale ) ;
           AppendLogical( Header, 'IUHR=', HR.InUse ) ;
           AppendLogical( Header, 'DSPHR=', HR.DisplayHR ) ;
+
+     AppendFloat( Header, 'DCO=', edDCOffset.Value ) ;
 
      // Recent files list
      for i := 0 to High(RecentFiles) do begin
@@ -2727,8 +2826,9 @@ begin
                Application.ProcessMessages ;
                end ;
            StatusBar.SimpleText := '' ;
+           edStartTime.Value := SaveStartTime ;
            end ;
-        edStartTime.Value := SaveStartTime ;
+
         end ;
      end ;
 
@@ -2924,8 +3024,7 @@ procedure TMainFrm.bGetTZeroClick(Sender: TObject);
 // ---------------------------
 begin
      scDisplay.VerticalCursors[Cursors.C0] := scDisplay.NumPoints div 10 ;
-     TZeroScan := scDisplay.XOffset*Round(scDisplay.TScale/(TScale*ADCSamplingInterval))
-                  + scDisplay.VerticalCursors[Cursors.C0] ;
+     TZeroScan := scDisplay.XOffset*Round(scDisplay.TScale/(TScale*ADCSamplingInterval) + scDisplay.VerticalCursors[Cursors.C0]) ;
      scDisplay.Invalidate ;
      end;
 
@@ -3098,7 +3197,7 @@ begin
 
      // Get raw signal value from selected channel }
      yRMS := Buf[ScanStart + scDisplay.ChanOffsets[RMS.FromChannel]]
-             - scDisplay.ChanZero[RMS.FromChannel] ;
+             - ROund(scDisplay.ChanZero[RMS.FromChannel]) ;
 
      // Square it
      yRMS := yRMS*yRMS ;
@@ -3223,7 +3322,7 @@ begin
      // Update signal zero level
      for ch := 0 to scDisplay.NumChannels-1 do begin
          scDisplay.ChanZero[ch] := scDisplay.HorizontalCursors[ch] ;
-         ADCChannelZero[ch] := scDisplay.ChanZero[ch] ;
+         ADCChannelZero[ch] := ROund(scDisplay.ChanZero[ch]) ;
          ADCChannelYMin[ch] := scDisplay.YMin[ch] ;
          ADCChannelYMax[ch] := scDisplay.YMax[ch] ;
          end ;
@@ -3233,7 +3332,7 @@ begin
      if not LiveMode then begin
 
         { Time zero cursor }
-        Cursor0Pos := scDisplay.VerticalCursors[Cursors.C0] ;
+        Cursor0Pos := Round(scDisplay.VerticalCursors[Cursors.C0]) ;
         if Cursor0Pos >= 0 then begin
            lbTZero.Left := scDisplay.XScreenCoord[Cursor0Pos]
                            + scDisplay.Left - (lbTZero.Width div 2) ;
@@ -3249,7 +3348,7 @@ begin
            end ;
 
         { Read out cursor }
-        Cursor1Pos := scDisplay.VerticalCursors[Cursors.C1] ;
+        Cursor1Pos := Round(scDisplay.VerticalCursors[Cursors.C1]) ;
 
         meCursor.Clear ;
         CursorTime := (Cursor1Pos + scDisplay.XOffset)*scDisplay.TScale
@@ -3479,6 +3578,8 @@ procedure TMainFrm.mnSaveAsClick(Sender: TObject);
 // -------------------------------
 //  Make copy of current data file
 //  ------------------------------
+var
+  FileName : string ;
 begin
 
      { Present user with standard Save File dialog box }
@@ -3493,9 +3594,9 @@ begin
 
      if SaveDialog.Execute then begin
         if not FileExists(SaveDialog.FileName) then begin
-           SaveFileName := ChangeFileExt(SaveDialog.FileName,'.cht') ;
-           SaveToDataFile( SaveFileName ) ;
-           SaveDirectory := GetDirectory( SaveFileName ) ;
+           FileName := ChangeFileExt(SaveDialog.FileName,'.cht') ;
+           SaveToDataFile( FileName ) ;
+//           SaveDirectory := GetDirectory( SaveFileName ) ;
            end
         else ShowMessage('File ' + SaveDialog.FileName + ' already exists. Choose another name!') ;
         end ;
@@ -3654,5 +3755,91 @@ begin
         end ;
 
         end ;
+
+procedure TMainFrm.sbDCOffsetChange(Sender: TObject);
+begin
+    SetDCOffset ;
+    end;
+
+procedure TMainFrm.SetDCOffset ;
+// -------------
+// Set DC Offset
+// -------------
+begin
+    DACV[DCOffsetDACChan] := -(sbDCOffset.Position*DCOffsetScale) ;
+    edDCOffset.Value := -DACV[DCOffsetDACChan] ;
+    SESLabIO.WriteDACS( DACV, 2 ) ;
+    end ;
+
+function TMainFrm.CheckNewDataFileNeeded : Boolean ;
+// ------------------------------------------------------------
+// Check record size and created a new file if size has changed
+// ------------------------------------------------------------
+var
+    NewFileNeeded : Boolean ;
+    i,ch : Integer ;
+    FileName,SequenceNum : String ;
+
+begin
+
+     Result := False ;
+     if NumSamplesInFile = 0 then Exit ;
+
+     // Remove sequence number (if one exists)
+     FileName := SaveFileName ;
+     for i := 1 to 100 do begin
+         SequenceNum := format('.%d.cht',[i]) ;
+         if Pos(SequenceNum, SaveFileName) > 0 then
+            FileName := ANSIReplaceText( SaveFileName, SequenceNum,'.cht') ;
+         end ;
+
+     NewFileNeeded := False ;
+     if ADCNumChannels <> MainFrm.SESLabIO.ADCNumChannels then NewFileNeeded := True ;
+     if (Abs(ADCSamplingInterval - MainFrm.SESLabIO.ADCSamplingInterval)/
+        MainFrm.SESLabIO.ADCSamplingInterval) > 1.0E-3 then NewFileNeeded := True ;
+     for ch := 0 to MainFrm.SESLabIO.ADCNumChannels-1 do begin
+         if ADCChannelName[ch] <> MainFrm.SESLabIO.ADCChannelName[ch] then NewFileNeeded := True ;
+         if ADCChannelUnits[ch] <> MainFrm.SESLabIO.ADCChannelUnits[ch] then NewFileNeeded := True ;
+         if Abs(ADCChannelScale[ch] - MainFrm.SESLabIO.ADCChannelUnitsPerBit[ch])/
+            Abs(MainFrm.SESLabIO.ADCChannelUnitsPerBit[ch]) > 1.0E-3 then NewFileNeeded := True ;
+         end ;
+
+     if NewFileNeeded then begin
+        i := 1 ;
+        repeat
+           SaveFileName := ANSIReplaceText( FileName, '.cht', format('.%d.cht',[i])) ;
+           Inc(i) ;
+           until not FileExists(SaveFileName) ;
+        // Clear temporary file of data
+        ClearTempFile ;
+        end ;
+
+     Caption := 'File: ' + SaveFileName ;
+
+     Result := NewFileNeeded ;
+
+     end ;
+
+
+
+procedure TMainFrm.FormDestroy(Sender: TObject);
+begin
+    FreeMem(ADC) ;
+    end;
+
+procedure TMainFrm.edDCOffsetKeyPress(Sender: TObject; var Key: Char);
+// -----------------------
+// DC offset value changed
+// -----------------------
+begin
+     if Key = #13 then begin
+        sbDCOffset.Position := Round(edDCOffset.Value/DCOffsetScale) ;
+        end ;
+     end;
+
+procedure TMainFrm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+begin
+    if RecordingInProgress then CanClose := False ;
+    end;
 
 end.
